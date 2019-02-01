@@ -8,6 +8,7 @@ from typing import List
 class SpikingNeuron:
     inhibitory=0
     excitatory=1
+    dci=3
     def __init__(self, neuron_type, group_scope="single"):
         self.n_type = neuron_type
         # adjustable constant parameters
@@ -30,11 +31,11 @@ class SpikingNeuron:
         # spikes that have arrived since last evaluation step
         self.dendritic_spikes = []
 
-        # # neurons that this axon projects too
+        # synapses that this axon projects too
         self.axonal_synapses = []
 
-        # timestamp of last spike
-        # self.last_spiked = 0
+        # a history of previous spikes, each spike is defined as: {"Synapse": synapse, "Time": time}
+        self.spike_history = []
 
         # variables to track
         self.tracked_vars = []
@@ -51,31 +52,37 @@ class SpikingNeuron:
     def q_t(self):
         q = 0.0
         for spike in self.dendritic_spikes:
+            # spike coming from an inhibitory Neuron
             if spike['neuron_type'] == self.__class__.inhibitory:
-                q += spike['weight'] * (self.max_q * (self.v_inhibition - self.v_membrane) / (self.v_threshold - self.v_inhibition))
+                q += spike['synapse'].w * (self.max_q * (self.v_inhibition - self.v_membrane) / (self.v_threshold - self.v_inhibition))
+                self.spike_history.append(spike['synapse'])
+            # spike coming from an excitatory Neuron
             elif spike['neuron_type'] == self.__class__.excitatory:
+                q += spike['synapse'].w * (self.max_q * (self.v_excitatory - self.v_membrane) / (self.v_excitatory - self.v_rest))
+                self.spike_history.append(spike['synapse'])
+            # spike coming from an artificial direct charge injection
+            elif spike['neuron_type'] == self.__class__.dci:
                 q += spike['weight'] * (self.max_q * (self.v_excitatory - self.v_membrane) / (self.v_excitatory - self.v_rest))
 
         self.dendritic_spikes = []
 
         return q
     
-    def update(self, dt, timeunit):
+    def update(self, dt, current_timestep):
         output = self.v_membrane
         input_charge = self.q_t()
         
-        if True:
-            # decay membrane potential
-            self.v_membrane -= (self.v_membrane - self.v_rest)*(1.0-np.exp(-dt/self.membrane_time_constant))
-                
-            # increase membrane potential due to spikes
-            self.v_membrane += input_charge / self.membrane_capacitance
+        # decay membrane potential
+        self.v_membrane -= (self.v_membrane - self.v_rest)*(1.0-np.exp(-dt/self.membrane_time_constant))
             
-            output = self.v_membrane
-            # check if ready to fire
-            if self.v_membrane >= self.v_threshold:
-                self.fire()
-                output = self.v_spike
+        # increase membrane potential due to spikes
+        self.v_membrane += input_charge / self.membrane_capacitance
+        
+        output = self.v_membrane
+        # check if ready to fire
+        if self.v_membrane >= self.v_threshold:
+            self.fire(current_timestep)
+            output = self.v_spike
         
         # record tracked variables
         if "v_m" in self.tracked_vars:
@@ -90,10 +97,10 @@ class SpikingNeuron:
         
         return output
 
-    def fire(self):
+    def fire(self, current_timestep):
         # self.last_spiked = tstamp
         for synapse in self.axonal_synapses:
-            synapse.post_n.dendritic_spikes.append({'neuron_type': self.n_type, 'weight': synapse.w})
+            synapse.post_n.dendritic_spikes.append({'neuron_type': self.n_type, 'synapse': synapse, 'timestep': current_timestep})
         self.reset()
 
 
@@ -103,38 +110,3 @@ class Synapse:
         self.post_n = post_n
         self.w = w
         self.id = 1
-
-
-if __name__ == "__main__":
-    tki = TimeKeeperIterator(timeunit=0.1*msec)
-
-    n = SpikingNeuron(SpikingNeuron.excitatory)
-    n.refractory_period = 0.0
-    n.tracked_vars = ['q_t', 'v_m', 's_t']
-
-    duration = 100 * msec
-    input_period = 10.0 * msec
-
-    lts = 0
-    for step in tki:
-        # if step == 50:
-        #     n.add_spike({'neuron_type': SpikingNeuron.excitatory, 'weight': 1.0})
-        # generate a spike every millisecond
-        if (step - lts)*tki.dt() >= input_period:
-            lts = step
-            for x in range(np.random.randint(1, 3)):
-                r = random.random()
-                if r <= 1.0:
-                    n.add_spike({'neuron_type': 1, 'weight': 0.8})
-        
-        n.update(tki.dt(), tki.dt())
-        if step == duration/tki.dt():
-            break
-    
-    import matplotlib.pyplot as plt
-    f, axarr = plt.subplots(3, sharex=True)
-    f.suptitle('Single Neuron')
-    axarr[0].plot(n.voltage_track)
-    axarr[1].plot(n.current_track)
-    axarr[2].plot(n.spike_track, 'r')
-    plt.show()

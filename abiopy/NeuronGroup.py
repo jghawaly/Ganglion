@@ -34,19 +34,24 @@ def connect(g1: NeuronGroup, g2: NeuronGroup):
                 s = Synapse(0, n1, n2, random.random())
                 n1.axonal_synapses.append(s)
 
+
+def run_order(group_order: List[NeuronGroup]):
+    # loop over each NeuronGroup
+    for g in group_order:
+        # loop over every Neuron in this NeuronGroup
+        for n in g.n:
+            n.update(tki.dt(), tki.tick_time())
+
 if __name__ == "__main__":
+    tki = TimeKeeperIterator(timeunit=0.01*msec)
+
     g1 = NeuronGroup(0, 10, "input")
-
     g2 = NeuronGroup(0, 10, "hidden")
-
     g3 = NeuronGroup(0, 1, "output")
+    g3.track_vars(['q_t', 'v_m', 's_t'])
 
     connect(g1, g2)
     connect(g2, g3)
-    
-    tki = TimeKeeperIterator(timeunit=0.1*msec)
-
-    g3.track_vars(['q_t', 'v_m', 's_t'])
 
     duration = 100 * msec
     input_period = 1.0 * msec
@@ -60,22 +65,9 @@ if __name__ == "__main__":
                 for x in range(1):
                     r = random.random()
                     if r <= 0.1:
-                        n.add_spike({'neuron_type': 1, 'weight': 1.0})
-        
-                        
-        active = []
-        for n in g1.n:
-            o = n.update(tki.dt(), tki.dt())
-            if o > 0:
-                active.append(1)
-            else:
-                active.append(0)
-        print(active)
-        for n in g2.n:
-            n.update(tki.dt(), tki.dt())
-        
-        for n in g3.n:
-            n.update(tki.dt(), tki.dt())
+                        n.add_spike({'neuron_type': SpikingNeuron.dci, 'weight': 1.0})
+             
+        run_order([g1, g2, g3])
 
         if step == duration/tki.dt():
             break

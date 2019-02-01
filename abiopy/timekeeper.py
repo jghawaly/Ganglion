@@ -8,6 +8,9 @@ class TimeKeeper:
     def dt(self):
         return self.timeunit
     
+    def tick_time(self):
+        return self.tick * self.timeunit
+    
     def step_forward(self):
         self.tick += 1
 
