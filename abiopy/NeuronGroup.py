@@ -36,11 +36,19 @@ def connect(g1: NeuronGroup, g2: NeuronGroup):
 
 
 def run_order(group_order: List[NeuronGroup]):
+    # Evaluating the inputs into each neuron and generating outputs
     # loop over each NeuronGroup
     for g in group_order:
         # loop over every Neuron in this NeuronGroup
         for n in g.n:
-            n.update(tki.dt(), tki.tick_time())
+            n.evaluate(tki.dt(), tki.tick_time())
+    
+    # update the dendritic spike chains
+    # loop over each NeuronGroup
+    for g in group_order:
+        # loop over every Neuron in this NeuronGroup
+        for n in g.n:
+            n.update()
 
 if __name__ == "__main__":
     tki = TimeKeeperIterator(timeunit=0.01*msec)
@@ -65,7 +73,7 @@ if __name__ == "__main__":
                 for x in range(1):
                     r = random.random()
                     if r <= 0.1:
-                        n.add_spike({'neuron_type': SpikingNeuron.dci, 'weight': 1.0})
+                        n.dendritic_spikes.append({'neuron_type': SpikingNeuron.dci, 'weight': 1.0})
              
         run_order([g1, g2, g3])
 

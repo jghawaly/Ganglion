@@ -31,6 +31,9 @@ class SpikingNeuron:
         # spikes that have arrived since last evaluation step
         self.dendritic_spikes = []
 
+        # spikes that have arrived at the current evaluation step
+        self.current_dendritic_spikes = []
+
         # synapses that this axon projects too
         self.axonal_synapses = []
 
@@ -46,8 +49,8 @@ class SpikingNeuron:
     def reset(self):
         self.v_membrane = self.v_hyperpolarization # self.v_rest
     
-    def add_spike(self, s):
-        self.dendritic_spikes.append(s)
+    # def add_spike(self, s):
+    #     self.dendritic_spikes.append(s)
     
     def q_t(self):
         q = 0.0
@@ -68,7 +71,11 @@ class SpikingNeuron:
 
         return q
     
-    def update(self, dt, current_timestep):
+    def update(self):
+        self.dendritic_spikes = self.current_dendritic_spikes.copy()
+        self.current_dendritic_spikes = []
+    
+    def evaluate(self, dt, current_timestep):
         output = self.v_membrane
         input_charge = self.q_t()
         
@@ -100,7 +107,7 @@ class SpikingNeuron:
     def fire(self, current_timestep):
         # self.last_spiked = tstamp
         for synapse in self.axonal_synapses:
-            synapse.post_n.dendritic_spikes.append({'neuron_type': self.n_type, 'synapse': synapse, 'timestep': current_timestep})
+            synapse.post_n.current_dendritic_spikes.append({'neuron_type': self.n_type, 'synapse': synapse, 'timestep': current_timestep})
         self.reset()
 
 
