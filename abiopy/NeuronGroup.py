@@ -14,6 +14,7 @@ class NeuronGroup:
         self.n_num = inhib_neurons + excit_neurons
 
         self.n: List[SpikingNeuron] = []
+        self.s: List[Synapse] = []
         self._construct()
     
     def _construct(self):
@@ -27,28 +28,44 @@ class NeuronGroup:
             n.tracked_vars = v
 
 
-def connect(g1: NeuronGroup, g2: NeuronGroup):
-    for n1 in g1.n:
-        for n2 in g2.n:
-            if random.random() <= 1.0:
-                s = Synapse(0, n1, n2, random.random())
-                n1.axonal_synapses.append(s)
+class NeuralNetwork:
+    def __init__(self, groups, name):
+        self.name = name
+        self.neural_groups = groups
+        self.s: List[Synapse] = []
 
+    def connect(self, g1, g2):
+        for n1 in self.neural_groups[g1].n:
+            for n2 in self.neural_groups[g2].n:
+                if random.random() <= 1.0:
+                    s = Synapse(0, n1, n2, random.random())
+                    n1.axonal_synapses.append(s)
+                    n2.dendritic_synapses.append(s)
+                    self.s.append(s)
 
-def run_order(group_order: List[NeuronGroup]):
-    # Evaluating the inputs into each neuron and generating outputs
-    # loop over each NeuronGroup
-    for g in group_order:
-        # loop over every Neuron in this NeuronGroup
-        for n in g.n:
-            n.evaluate(tki.dt(), tki.tick_time())
-    
-    # update the dendritic spike chains
-    # loop over each NeuronGroup
-    for g in group_order:
-        # loop over every Neuron in this NeuronGroup
-        for n in g.n:
-            n.update()
+    def run_order(self, group_order, train=True):
+        # Evaluating the inputs into each neuron and generating outputs
+        # loop over each NeuronGroup
+        for o in group_order:
+            g = self.neural_groups[o]
+            # loop over every Neuron in this NeuronGroup
+            for n in g.n:
+                n.evaluate(tki.dt(), tki.tick_time())
+        
+        # update the dendritic spike chains
+        # loop over each NeuronGroup
+        for o in group_order:
+            g = self.neural_groups[o]
+            # loop over every Neuron in this NeuronGroup
+            for n in g.n:
+                n.update()
+        
+        if train:
+            # update synaptic weights
+            # loop over every synapse in the network
+            for s in self.s:
+                s.stdp()
+
 
 if __name__ == "__main__":
     tki = TimeKeeperIterator(timeunit=0.01*msec)
@@ -58,8 +75,9 @@ if __name__ == "__main__":
     g3 = NeuronGroup(0, 1, "output")
     g3.track_vars(['q_t', 'v_m', 's_t'])
 
-    connect(g1, g2)
-    connect(g2, g3)
+    nn = NeuralNetwork([g1, g2, g3], "my_net")
+    nn.connect(0, 1)
+    nn.connect(1, 2)
 
     duration = 100 * msec
     input_period = 1.0 * msec
@@ -75,7 +93,7 @@ if __name__ == "__main__":
                     if r <= 0.1:
                         n.dendritic_spikes.append({'neuron_type': SpikingNeuron.dci, 'weight': 1.0})
              
-        run_order([g1, g2, g3])
+        nn.run_order([0, 1, 2])
 
         if step == duration/tki.dt():
             break
