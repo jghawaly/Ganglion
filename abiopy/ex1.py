@@ -3,6 +3,7 @@ from timekeeper import TimeKeeperIterator
 from NeuralGroup import NeuralGroup
 from NeuralNetwork import NeuralNetwork
 from Neuron import SpikingNeuron, NeuronParams
+from Synapse import Synapse
 from units import *
 import random
 import pyqtgraph as pg
@@ -24,8 +25,8 @@ if __name__ == "__main__":
     g3.track_vars(['q_t', 'v_m', 's_t'])
 
     nn = NeuralNetwork([g1, g2, g3], "my_net")
-    nn.fully_connect(0, 1)
-    nn.fully_connect(1, 2)
+    nn.fully_connect("input", "hidden")
+    nn.fully_connect("hidden", "output")
 
     duration = 100 * msec
     input_period = 0.1 * msec
@@ -37,12 +38,12 @@ if __name__ == "__main__":
             # add some random inputs to the first neuron group
             g1.dci(np.random.randint(2, size=g1.n_num))
              
-        nn.run_order([0, 1, 2], tki)
+        nn.run_order(["input", "hidden", "output"], tki)
 
         if step >= duration/tki.dt():
             break
     
-    n = g3.n[0]
+    n = g2.n[0]
     
     app = QtGui.QApplication(sys.argv)
 

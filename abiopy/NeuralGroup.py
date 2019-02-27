@@ -1,4 +1,4 @@
-from Neuron import SpikingNeuron, Synapse, NeuronParams
+from Neuron import SpikingNeuron, NeuronParams
 from timekeeper import TimeKeeperIterator
 from units import *
 import numpy as np
@@ -41,6 +41,9 @@ class NeuralGroup:
         else:
             for i in range(len(c)):
                 self.n[i].dendritic_spikes.append({'neuron_type': SpikingNeuron.dci, 'weight': c[i]})
+    @property
+    def shape(self):
+        return (len(self.n))
     
     @property
     def voltage_track(self):
@@ -55,11 +58,16 @@ class NeuralGroup:
         return [n.spike_track[-1] for n in self.n]
 
 
-class SquareNeuralGroup(NeuralGroup):
+class StructuredNeuralGroup(NeuralGroup):
     def __init__(self, kernel: np.ndarray, name, neuron_params=None):
         self.kernel = kernel
         self.n_structure = []
-        super().__init__(kernel.shape[0] * kernel.shape[1] - np.count_nonzero(kernel), np.count_nonzero(kernel), name, neuron_params=None)
+        try:
+            area = kernel.shape[0] * kernel.shape[1]
+        except IndexError:
+            area = kernel.shape[0]
+
+        super().__init__(area - np.count_nonzero(kernel), np.count_nonzero(kernel), name, neuron_params=None)
     
     def _construct(self):
         # either load default or user-specified neuron parameters
@@ -75,11 +83,26 @@ class SquareNeuralGroup(NeuralGroup):
     
     @property
     def weight_map(self):
+        # NOTE: This should not be here, it will only work for all-to-one connection types
         w_map = np.zeros(self.kernel.shape, dtype=np.float)
         for item in self.n_structure:
             w_map[item['kernel_loc']] = item['neuron'].axonal_synapses[0].w
         
         return w_map
+    
+    def neuron(self, index):
+        """
+        Return the neuron at the requested index.
+        """
+        for item in self.n_structure:
+            if item['kernel_loc'] == index:
+                return item['neuron']
+        
+        return None
+    
+    @property
+    def shape(self):
+        return self.kernel.shape
     
     def dci(self, c):
         if c.shape != self.kernel.shape:

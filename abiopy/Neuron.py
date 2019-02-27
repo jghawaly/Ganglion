@@ -17,7 +17,7 @@ class NeuronParams:
         self.membrane_capacitance = 200.0 * pfarad 
         self.membrane_time_constant = 2.0 * msec
         self.leak_conductance = 10.0 * nsiem
-        self.max_q = 0.01 * ncoul#0.004 * ncoul
+        self.max_q = 3.9 * pcoul # 4 pcoul should be enough to trigger with default settings
 
 
 class SpikingNeuron:
