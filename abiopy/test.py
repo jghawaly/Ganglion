@@ -1,53 +1,34 @@
-import pygame
-from NeuronGroup import NeuronGroup, connect
-
-from pygame.locals import *
-
-# NN stuff
-g1 = NeuronGroup(0, 10, "input")
-g2 = NeuronGroup(0, 5, "hidden")
-g3 = NeuronGroup(0, 1, "output")
-g3.track_vars(['q_t', 'v_m', 's_t'])
-
-connect(g1, g2)
-connect(g2, g3)
-
-class GraphicsNeuron(pygame.sprite.Sprite):
-    def __init__(self, radius):
-        super(GraphicsNeuron, self).__init__()
-        self.surf = pygame.Surface((2*radius, 2*radius))
-        pygame.draw.circle(self.surf, (0,0 ,255), (radius,radius), radius)
-        self.rect = self.surf.get_rect()
-
-pygame.init()
-
-screen = pygame.display.set_mode((1080, 760))
-
-def draw_n_group(g, num_layers, layer):
-    v = int(1080/(num_layers+2))
-    h_gap = int(760/(g.n_num+2))
-    x = 1
-    for n in g.n:
-        new_n = GraphicsNeuron(10)
-        screen.blit(new_n.surf, (v*layer, x*h_gap))
-        x+=1
+import numpy as np
+import matplotlib.pyplot as plt
 
 
-n = GraphicsNeuron(10)
+vr = -50
+v1 = 40
+tm = 10
+
+def dv1(volts, dt):
+    return volts - (volts-vr)*(1.0 - np.exp(-dt/tm))
 
 
-running = True
+def dv2(volts, dt):
+    return volts * np.exp(-dt/tm)
 
-while running:
-    for event in pygame.event.get():
-        if event.type == KEYDOWN:
-            if event.key == K_ESCAPE:
-                running = False
-        elif event.type == QUIT:
-            running = False
+one = []
+two = []
 
-    screen.fill((0,0,0))
-    draw_n_group(g1, 3, 1)
-    draw_n_group(g2, 3, 2)
-    draw_n_group(g3, 3, 3)
-    pygame.display.flip()
+for x in range(20):
+    v1 = dv1(v1, 1)
+    one.append(v1)
+
+vr = -50
+v1 = 40
+tm = 10
+
+for x in range(20):
+    v1 = dv2(v1, 1)
+    two.append(v1)
+
+plt.plot(one, "r")
+plt.plot(two, "b")
+plt.legend(("one", "two"))
+plt.show()

@@ -52,7 +52,7 @@ img[:,np.random.randint(1, 4)] = 1.0
 for step in tki:
     if (step - lts2)*tki.dt() >= 30*input_period:
         lts2 = step
-        if random.random() >+ 0.5:
+        if random.random() >= 0.5:
             # generate an image with a vertical line on it
             img = np.zeros((5, 5), dtype=np.float)
             img[:, np.random.randint(1, 4)] = 1.0

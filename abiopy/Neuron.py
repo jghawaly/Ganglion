@@ -91,10 +91,12 @@ class SpikingNeuron:
         input_charge = self.q_t()
         
         # decay membrane potential
-        self.v_membrane -= (self.v_membrane - self.v_rest) * (1.0 - np.exp(-dt / self.membrane_time_constant))
+        # self.v_membrane -= (self.v_membrane - self.v_rest) * (1.0 - np.exp(-dt / self.membrane_time_constant))
             
-        # increase membrane potential due to spikes
-        self.v_membrane += input_charge / self.membrane_capacitance
+        # # increase membrane potential due to spikes
+        # self.v_membrane += input_charge / self.membrane_capacitance
+
+        self.v_membrane = self.v_membrane + input_charge / self.membrane_capacitance - (self.v_membrane - self.v_rest) * (1.0 - np.exp(-dt / self.membrane_time_constant))
         
         output = self.v_membrane
         # check if ready to fire
