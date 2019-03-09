@@ -44,7 +44,7 @@ class NeuralNetwork:
                 # if we are allowed, connect n1 to n2
                 if can_connect:
                     if random.random() <= connection_probability:
-                        s = Synapse(0, n1, n2, random.uniform(0.1, 0.5) if w_i is None else w_i, trainable=trainable)
+                        s = Synapse(0, n1, n2, random.uniform(0.5, 0.52) if w_i is None else w_i, trainable=trainable)
                         n1.axonal_synapses.append(s)
                         n2.dendritic_synapses.append(s)
                         self.s.append(s)
@@ -56,7 +56,7 @@ class NeuralNetwork:
         g2 = self.g(g2_tag)
         for n2 in g2.n:
             if random.random() <= connection_probability:
-                s = Synapse(0, n1, n2, random.uniform(0.1, 0.5) if w_i is None else w_i, trainable=trainable)
+                s = Synapse(0, n1, n2, random.uniform(0.5, 0.52) if w_i is None else w_i, trainable=trainable)
                 n1.axonal_synapses.append(s)
                 n2.dendritic_synapses.append(s)
                 self.s.append(s)
@@ -68,7 +68,7 @@ class NeuralNetwork:
         g1 = self.g(g1_tag)
         for n1 in g1.n:
             if random.random() <= connection_probability:
-                s = Synapse(0, n1, n2, random.uniform(0.1, 0.5) if w_i is None else w_i, trainable=trainable)
+                s = Synapse(0, n1, n2, random.uniform(0.5, 0.52) if w_i is None else w_i, trainable=trainable)
                 n1.axonal_synapses.append(s)
                 n2.dendritic_synapses.append(s)
                 self.s.append(s)
@@ -93,14 +93,14 @@ class NeuralNetwork:
                     n2 = g2.n[idx[0]]
 
                 if random.random() <= connection_probability:
-                    s = Synapse(0, n1, n2, random.uniform(0.1, 0.5) if w_i is None else w_i, trainable=trainable)
+                    s = Synapse(0, n1, n2, random.uniform(0.5, 0.52) if w_i is None else w_i, trainable=trainable)
                     n1.axonal_synapses.append(s)
                     n2.dendritic_synapses.append(s)
                     self.s.append(s)
         else:
             raise ValueError("NeuronGroups g1 and g2 must have the same shape")
         
-    def run_order(self, group_order, timekeeper, train=True):
+    def run_order(self, group_order, timekeeper, train=True, lr_ex=1.0, lr_inh=1.0):
         # Evaluating the inputs into each neuron and generating outputs
         # loop over each NeuronGroup
         for o in group_order:
@@ -120,4 +120,4 @@ class NeuralNetwork:
             # update synaptic weights
             # loop over every synapse in the network
             for s in self.s:
-                s.stdp()
+                s.stdp(lr_ex, lr_inh)

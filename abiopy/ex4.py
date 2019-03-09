@@ -9,54 +9,33 @@ import sys
 import matplotlib.pyplot as plt
 
 
-tki = TimeKeeperIterator(timeunit=0.01*msec)
+tki = TimeKeeperIterator(timeunit=0.1*msec)
 duration = 100 * msec
 input_period = 0.05 * msec
 
 on_center = np.array([[0, 0, 0],[0, 1, 0],[0, 0, 0]])
 
-rf1 = StructuredNeuralGroup(on_center, "rf1")
-rf2 = StructuredNeuralGroup(on_center, "rf2")
-rf3 = StructuredNeuralGroup(on_center, "rf3")
-rf4 = StructuredNeuralGroup(on_center, "rf4")
-rf5 = StructuredNeuralGroup(on_center, "rf5")
-rf6 = StructuredNeuralGroup(on_center, "rf6")
-rf7 = StructuredNeuralGroup(on_center, "rf7")
-rf8 = StructuredNeuralGroup(on_center, "rf8")
-rf9 = StructuredNeuralGroup(on_center, "rf9")
-lgn = StructuredNeuralGroup(np.ones(9), 'lgn')
-v1_exc = StructuredNeuralGroup(np.ones(2), 'v1_exc')
-v1_inh = StructuredNeuralGroup(np.zeros(2), 'v1_inh')
+lgn = StructuredNeuralGroup(np.ones((5, 5)), 'lgn')
+v1_exc = StructuredNeuralGroup(np.ones((10, 10)), 'v1_exc')
+v1_inh = StructuredNeuralGroup(np.zeros((10, 10)), 'v1_inh')
 
 v1_exc.track_vars(['q_t', 'v_m', 's_t'])
 
-nn = NeuralNetwork([rf1, rf2, rf3, rf4, rf5, rf6, rf7, rf8, rf9, lgn, v1_exc, v1_inh], "NN")
-rfw = 1.0
-nn.all_to_one("rf1", lgn.n[0], trainable=False, w_i=rfw)
-nn.all_to_one("rf2", lgn.n[1], trainable=False, w_i=rfw)
-nn.all_to_one("rf3", lgn.n[2], trainable=False, w_i=rfw)
-nn.all_to_one("rf4", lgn.n[3], trainable=False, w_i=rfw)
-nn.all_to_one("rf5", lgn.n[4], trainable=False, w_i=rfw)
-nn.all_to_one("rf6", lgn.n[5], trainable=False, w_i=rfw)
-nn.all_to_one("rf7", lgn.n[6], trainable=False, w_i=rfw)
-nn.all_to_one("rf8", lgn.n[7], trainable=False, w_i=rfw)
-nn.all_to_one("rf9", lgn.n[8], trainable=False, w_i=rfw)
+nn = NeuralNetwork([lgn, v1_exc, v1_inh], "NN")
 nn.fully_connect("lgn", "v1_exc")
 nn.one_to_one("v1_exc", "v1_inh")
-nn.fully_connect("v1_inh", "v1_exc", skip_self=True, trainable=False, w_i=0.1)
+nn.fully_connect("v1_inh", "v1_exc", skip_self=True)#, trainable=False, w_i=0.9)
 
-plt.imshow(weight_map_between(lgn, v1_exc.neuron((0,)))[np.newaxis], aspect='auto')
-plt.show()
-plt.imshow(weight_map_between(lgn, v1_exc.neuron((1,)))[np.newaxis], aspect='auto')
+plt.imshow(weight_map_between(lgn, v1_exc.neuron((0,0))), aspect='auto')
 plt.show()
 lts = 0
 lts2 = 0
 img = np.zeros((5, 5), dtype=np.float)
-img[:, 2] = 1.0
+img[:,np.random.randint(1, 4)] = 1.0
 for step in tki:
     if (step - lts2)*tki.dt() >= 30*input_period:
         lts2 = step
-        if random.random() >= 0.5:
+        if random.random() >= 0.0:
             # generate an image with a vertical line on it
             img = np.zeros((5, 5), dtype=np.float)
             # img[:, np.random.randint(1, 4)] = 1.0
@@ -64,27 +43,19 @@ for step in tki:
         else:
             # generate an image with a horizontal line on it
             img = np.zeros((5, 5), dtype=np.float)
-            img[2,:] = 1.0
+            img[np.random.randint(1, 4),:] = 1.0
     if (step - lts)*tki.dt() >= input_period:
-        if random.random() > 0.5:
-            rf1.dci(img[0:3, 0:3])
-            rf2.dci(img[0:3, 1:4])
-            rf3.dci(img[0:3, 2:5])
-            rf4.dci(img[1:4, 0:3])
-            rf5.dci(img[1:4, 1:4])
-            rf6.dci(img[1:4, 2:5])
-            rf7.dci(img[2:5, 0:3])
-            rf8.dci(img[2:5, 1:4])
-            rf9.dci(img[2:5, 2:5])
         lts = step
+        lgn.dci(img)
             
-    nn.run_order(["rf1", "rf2", "rf3", "rf4", "rf5", "rf6", "rf7", "rf8", "rf9", "lgn", "v1_exc", "v1_inh", "v1_exc"], tki)
+    nn.run_order(["lgn", "v1_exc", "v1_inh", "v1_exc"], tki, lr_ex=0.1, lr_inh=0.1)
 
     if step >= duration/tki.dt():
         break
-plt.imshow(weight_map_between(lgn, v1_exc.neuron((0,)))[np.newaxis], aspect='auto')
+
+plt.imshow(weight_map_between(lgn, v1_exc.neuron((0,0))), aspect='auto')
 plt.show()
-plt.imshow(weight_map_between(lgn, v1_exc.neuron((1,)))[np.newaxis], aspect='auto')
+plt.imshow(weight_map_between(lgn, v1_exc.neuron((1,0))), aspect='auto')
 plt.show()
 
 # import pyqtgraph as pg

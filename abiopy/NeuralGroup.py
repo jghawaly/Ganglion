@@ -1,4 +1,5 @@
 from Neuron import SpikingNeuron, NeuronParams
+from Synapse import Synapse
 from timekeeper import TimeKeeperIterator
 from units import *
 import numpy as np
@@ -81,14 +82,14 @@ class StructuredNeuralGroup(NeuralGroup):
             self.n.append(neuron)
             self.n_structure.append({'kernel_loc': idx, "neuron": neuron})
     
-    @property
-    def weight_map(self):
-        # NOTE: This should not be here, it will only work for all-to-one connection types
-        w_map = np.zeros(self.kernel.shape, dtype=np.float)
-        for item in self.n_structure:
-            w_map[item['kernel_loc']] = item['neuron'].axonal_synapses[0].w
+    # @property
+    # def weight_map(self):
+    #     # NOTE: This should not be here, it will only work for all-to-one connection types
+    #     w_map = np.zeros(self.kernel.shape, dtype=np.float)
+    #     for item in self.n_structure:
+    #         w_map[item['kernel_loc']] = item['neuron'].axonal_synapses[0].w
         
-        return w_map
+    #     return w_map
     
     def neuron(self, index):
         """
@@ -110,3 +111,24 @@ class StructuredNeuralGroup(NeuralGroup):
         else:
             for item in self.n_structure:
                 item['neuron'].dendritic_spikes.append({'neuron_type': SpikingNeuron.dci, 'weight': c[item['kernel_loc']]})
+
+
+def weight_map_between(g: StructuredNeuralGroup, n: SpikingNeuron):
+    """
+    Get the weightmap between a StructuredNeuralGroup and an individual neuron
+    """
+    # construct empty weight map
+    w_map = np.zeros(g.kernel.shape, dtype=np.float)
+
+    # loop over group structure
+    for item in g.n_structure:
+        # get the current neuron
+        my_neuron = item['neuron']
+        # get list of axonal synapses that project to the given neuron
+        syn = [s for s in my_neuron.axonal_synapses if s.post_n == n]
+
+        # if the matching synapse list is NOT empty
+        if len(syn) > 0:
+            w_map[item['kernel_loc']] = syn[0].w
+    
+    return w_map
