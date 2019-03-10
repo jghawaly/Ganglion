@@ -9,8 +9,8 @@ import sys
 import matplotlib.pyplot as plt
 
 
-tki = TimeKeeperIterator(timeunit=0.01*msec)
-duration = 100 * msec
+tki = TimeKeeperIterator(timeunit=0.1*msec)
+duration = 1000 * msec
 input_period = 0.05 * msec
 
 on_center = np.array([[0, 0, 0],[0, 1, 0],[0, 0, 0]])
@@ -43,7 +43,7 @@ nn.all_to_one("rf8", lgn.n[7], trainable=False, w_i=rfw)
 nn.all_to_one("rf9", lgn.n[8], trainable=False, w_i=rfw)
 nn.fully_connect("lgn", "v1_exc")
 nn.one_to_one("v1_exc", "v1_inh")
-nn.fully_connect("v1_inh", "v1_exc", skip_self=True, trainable=False, w_i=0.1)
+nn.fully_connect("v1_inh", "v1_exc", skip_self=True)#, trainable=False, w_i=0.9)
 
 plt.imshow(weight_map_between(lgn, v1_exc.neuron((0,)))[np.newaxis], aspect='auto')
 plt.show()
@@ -78,7 +78,7 @@ for step in tki:
             rf9.dci(img[2:5, 2:5])
         lts = step
             
-    nn.run_order(["rf1", "rf2", "rf3", "rf4", "rf5", "rf6", "rf7", "rf8", "rf9", "lgn", "v1_exc", "v1_inh", "v1_exc"], tki)
+    nn.run_order(["rf1", "rf2", "rf3", "rf4", "rf5", "rf6", "rf7", "rf8", "rf9", "lgn", "v1_exc", "v1_inh", "v1_exc"], tki, lr_ex=0.01, lr_inh=0.01)
 
     if step >= duration/tki.dt():
         break

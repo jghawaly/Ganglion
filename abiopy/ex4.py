@@ -24,18 +24,20 @@ v1_exc.track_vars(['q_t', 'v_m', 's_t'])
 nn = NeuralNetwork([lgn, v1_exc, v1_inh], "NN")
 nn.fully_connect("lgn", "v1_exc")
 nn.one_to_one("v1_exc", "v1_inh")
-nn.fully_connect("v1_inh", "v1_exc", skip_self=True)#, trainable=False, w_i=0.9)
+nn.fully_connect("v1_inh", "v1_exc", skip_self=True, trainable=False, w_i=1.0)
 
 plt.imshow(weight_map_between(lgn, v1_exc.neuron((0,0))), aspect='auto')
+plt.show()
+plt.imshow(weight_map_between(lgn, v1_exc.neuron((1,0))), aspect='auto')
 plt.show()
 lts = 0
 lts2 = 0
 img = np.zeros((5, 5), dtype=np.float)
-img[:,np.random.randint(1, 4)] = 1.0
+img[:, 2] = 1.0
 for step in tki:
     if (step - lts2)*tki.dt() >= 30*input_period:
         lts2 = step
-        if random.random() >= 0.0:
+        if random.random() >= 0.5:
             # generate an image with a vertical line on it
             img = np.zeros((5, 5), dtype=np.float)
             # img[:, np.random.randint(1, 4)] = 1.0
@@ -43,12 +45,12 @@ for step in tki:
         else:
             # generate an image with a horizontal line on it
             img = np.zeros((5, 5), dtype=np.float)
-            img[np.random.randint(1, 4),:] = 1.0
+            img[2,:] = 1.0
     if (step - lts)*tki.dt() >= input_period:
         lts = step
         lgn.dci(img)
             
-    nn.run_order(["lgn", "v1_exc", "v1_inh", "v1_exc"], tki, lr_ex=0.1, lr_inh=0.1)
+    nn.run_order(["lgn", "v1_exc", "v1_inh"], tki, lr_ex=0.01, lr_inh=0.01)
 
     if step >= duration/tki.dt():
         break
