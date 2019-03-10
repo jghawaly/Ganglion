@@ -108,10 +108,10 @@ class NeuralNetwork:
             # loop over every Neuron in this NeuronGroup
             g.evaluate(timekeeper.dt(), timekeeper.tick_time())
         
-        # update the dendritic spike chains
-        # loop over each NeuronGroup
+        # # update the dendritic spike chains
+        # # loop over each NeuronGroup
         # for o in group_order:
-        #     g = self.neural_groups[o]
+        #     g = self.g[o]
         #     # loop over every Neuron in this NeuronGroup
         #     for n in g.n:
         #         n.update()

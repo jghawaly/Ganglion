@@ -116,7 +116,7 @@ class SpikingNeuron:
         # self.last_spiked = tstamp
         for synapse in self.axonal_synapses:
             # synapse.post_n.current_dendritic_spikes.append({'neuron_type': self.n_type, 'synapse': synapse, 'timestep': current_timestep})
-            synapse.post_n.dendritic_spikes.append({'neuron_type': self.n_type, 'synapse': synapse, 'timestep': current_timestep})
+            synapse.post_n.dendritic_spikes.append({'neuron_type': self.n_type, 'synapse': synapse, 'timestep': current_timestep}) 
             synapse.pre_spikes.append(current_timestep)
         
         for synapse in self.dendritic_synapses:

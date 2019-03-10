@@ -10,8 +10,8 @@ import matplotlib.pyplot as plt
 
 
 tki = TimeKeeperIterator(timeunit=0.1*msec)
-duration = 1000 * msec
-input_period = 0.05 * msec
+duration = 3000 * msec
+input_period = 0.1 * msec
 
 on_center = np.array([[0, 0, 0],[0, 1, 0],[0, 0, 0]])
 
@@ -42,8 +42,8 @@ nn.all_to_one("rf7", lgn.n[6], trainable=False, w_i=rfw)
 nn.all_to_one("rf8", lgn.n[7], trainable=False, w_i=rfw)
 nn.all_to_one("rf9", lgn.n[8], trainable=False, w_i=rfw)
 nn.fully_connect("lgn", "v1_exc")
-nn.one_to_one("v1_exc", "v1_inh")
-nn.fully_connect("v1_inh", "v1_exc", skip_self=True)#, trainable=False, w_i=0.9)
+nn.one_to_one("v1_exc", "v1_inh", w_i=1.0)
+nn.fully_connect("v1_inh", "v1_exc", skip_self=True, trainable=False, w_i=1.0)
 
 plt.imshow(weight_map_between(lgn, v1_exc.neuron((0,)))[np.newaxis], aspect='auto')
 plt.show()
@@ -51,20 +51,24 @@ plt.imshow(weight_map_between(lgn, v1_exc.neuron((1,)))[np.newaxis], aspect='aut
 plt.show()
 lts = 0
 lts2 = 0
-img = np.zeros((5, 5), dtype=np.float)
+img = np.random.uniform(0.01, 0.1, (5, 5))
 img[:, 2] = 1.0
+vert = True
 for step in tki:
-    if (step - lts2)*tki.dt() >= 30*input_period:
+    if (step - lts2)*tki.dt() >= 1000*input_period:
         lts2 = step
-        if random.random() >= 0.5:
+        if vert:
+            print("showing vertical")
             # generate an image with a vertical line on it
-            img = np.zeros((5, 5), dtype=np.float)
+            img = np.random.uniform(0.01, 0.1, (5, 5))
             # img[:, np.random.randint(1, 4)] = 1.0
             img[:, 2] = 1.0
         else:
+            print("showing horizontal")
             # generate an image with a horizontal line on it
-            img = np.zeros((5, 5), dtype=np.float)
+            img = np.random.uniform(0.01, 0.1, (5, 5))
             img[2,:] = 1.0
+        vert = not vert
     if (step - lts)*tki.dt() >= input_period:
         if random.random() > 0.5:
             rf1.dci(img[0:3, 0:3])
@@ -78,7 +82,7 @@ for step in tki:
             rf9.dci(img[2:5, 2:5])
         lts = step
             
-    nn.run_order(["rf1", "rf2", "rf3", "rf4", "rf5", "rf6", "rf7", "rf8", "rf9", "lgn", "v1_exc", "v1_inh", "v1_exc"], tki, lr_ex=0.01, lr_inh=0.01)
+    nn.run_order(["rf1", "rf2", "rf3", "rf4", "rf5", "rf6", "rf7", "rf8", "rf9", "lgn", "v1_exc", "v1_inh"], tki, lr_ex=0.001, lr_inh=0.001)
 
     if step >= duration/tki.dt():
         break

@@ -82,15 +82,6 @@ class StructuredNeuralGroup(NeuralGroup):
             self.n.append(neuron)
             self.n_structure.append({'kernel_loc': idx, "neuron": neuron})
     
-    # @property
-    # def weight_map(self):
-    #     # NOTE: This should not be here, it will only work for all-to-one connection types
-    #     w_map = np.zeros(self.kernel.shape, dtype=np.float)
-    #     for item in self.n_structure:
-    #         w_map[item['kernel_loc']] = item['neuron'].axonal_synapses[0].w
-        
-    #     return w_map
-    
     def neuron(self, index):
         """
         Return the neuron at the requested index.
