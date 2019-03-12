@@ -88,6 +88,52 @@ class SpikingNeuron:
     
     def evaluate(self, dt, current_timestep):
         output = self.v_membrane
+
+        # decay membrane potential
+        self.v_membrane = self.v_membrane - (self.v_membrane - self.v_rest) * (1.0 - np.exp(-dt / self.membrane_time_constant))
+        
+        q_total = 0.0
+        for spike in self.dendritic_spikes:
+            q = 0.0
+            # spike coming from an inhibitory Neuron
+            if spike['neuron_type'] == self.__class__.inhibitory:
+                q = spike['synapse'].w * (self.max_q * (self.v_inhibition - self.v_membrane) / (self.v_threshold - self.v_inhibition))
+            # spike coming from an excitatory Neuron
+            elif spike['neuron_type'] == self.__class__.excitatory:
+                q = spike['synapse'].w * (self.max_q * (self.v_excitatory - self.v_membrane) / (self.v_excitatory - self.v_rest))
+            # spike coming from an artificial direct charge injection
+            elif spike['neuron_type'] == self.__class__.dci:
+                q = spike['weight'] * (self.max_q * (self.v_excitatory - self.v_membrane) / (self.v_excitatory - self.v_rest))
+            
+            # update membrane potential
+            self.v_membrane = self.v_membrane + q / self.membrane_capacitance
+            # for tracking charge injection
+            q_total += q
+
+        self.dendritic_spikes = []
+
+        
+        output = self.v_membrane
+        # check if ready to fire
+        if self.v_membrane >= self.v_threshold:
+            self.fire(current_timestep)
+            output = self.v_spike
+        
+        # record tracked variables
+        if "v_m" in self.tracked_vars:
+            self.voltage_track.append(output)
+        if "q_t" in self.tracked_vars:
+            self.charge_track.append(q_total)
+        if "s_t" in self.tracked_vars:
+            if output == self.v_spike:
+                self.spike_track.append(1)
+            else:
+                self.spike_track.append(0)
+        
+        return output
+    
+    def evaluate2(self, dt, current_timestep):
+        output = self.v_membrane
         input_charge = self.q_t()
         
         # update membrane potential

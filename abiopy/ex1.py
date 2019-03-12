@@ -43,7 +43,7 @@ if __name__ == "__main__":
         if step >= duration/tki.dt():
             break
     
-    n = g2.n[0]
+    n = g1.n[0]
     
     app = QtGui.QApplication(sys.argv)
 

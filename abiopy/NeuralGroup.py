@@ -68,7 +68,7 @@ class StructuredNeuralGroup(NeuralGroup):
         except IndexError:
             area = kernel.shape[0]
 
-        super().__init__(area - np.count_nonzero(kernel), np.count_nonzero(kernel), name, neuron_params=None)
+        super().__init__(area - np.count_nonzero(kernel), np.count_nonzero(kernel), name, neuron_params=neuron_params)
     
     def _construct(self):
         # either load default or user-specified neuron parameters
@@ -76,9 +76,9 @@ class StructuredNeuralGroup(NeuralGroup):
 
         for idx, i in np.ndenumerate(self.kernel):
             if i == 0:
-                neuron = SpikingNeuron(SpikingNeuron.inhibitory, neuron_params, group_scope=self.name)
+                neuron = SpikingNeuron(SpikingNeuron.inhibitory, params=neuron_params, group_scope=self.name)
             else:
-                neuron = SpikingNeuron(SpikingNeuron.excitatory, neuron_params, group_scope=self.name)
+                neuron = SpikingNeuron(SpikingNeuron.excitatory, params=neuron_params, group_scope=self.name)
             self.n.append(neuron)
             self.n_structure.append({'kernel_loc': idx, "neuron": neuron})
     
