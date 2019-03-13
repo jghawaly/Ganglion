@@ -3,7 +3,7 @@ from units import *
 from numba import jit
 
 @jit(nopython=True)
-def dw(dt, w, tao_plus, tao_minus, lr_plus, lr_minus):
+def dw(dt, w, tao_plus, tao_minus, lr_plus, lr_minus, a_plus=0.3, a_minus=-0.6):
     """
     Calculate the STDP weight change in a single synapse
     dt: postsynaptic neuron spike time - presynaptic neuron spike time
@@ -15,11 +15,9 @@ def dw(dt, w, tao_plus, tao_minus, lr_plus, lr_minus):
     """
 
     if dt >= 0:
-        a = (1.0 - w) * lr_plus
-        return a * np.exp(-dt / tao_plus)
+        return lr_plus * (1.0 - w) * a_plus * np.exp(-dt / tao_plus)
     else:
-        a = w * lr_minus
-        return -a * np.exp(dt / tao_minus)
+        return lr_minus * w * a_minus * np.exp(dt / tao_minus)
 
 
 if __name__=='__main__':

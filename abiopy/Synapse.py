@@ -2,16 +2,27 @@ from Neuron import SpikingNeuron
 from units import *
 from learning import dw
 
+
+class STDPParams:
+    def __init__(self):
+        self.window = 5 *msec
+        self.lr_plus = 0.01
+        self.lr_minus = 0.01
+        self.tao_plus = 10 * msec
+        self.tao_minus = 10 * msec
+        self.a_plus = 0.3
+        self.a_miunus = -0.6
+
 class Synapse:
     # NOTE: Add weight chaange tracking by turning self.w into a property call
-    def __init__(self, id, pre_n: SpikingNeuron, post_n: SpikingNeuron, w: float=1.0, trainable: bool=True):
+    def __init__(self, id, pre_n: SpikingNeuron, post_n: SpikingNeuron, w: float=1.0, trainable: bool=True, params: STDPParams=None):
         self.pre_neuron = pre_n
         self.post_n = post_n
         self.w = w
         self.id = 1
         self.trainable = trainable
 
-        self.window = 50.0 * msec
+        self.lp = STDPParams() if params is None else params
         
         self.pre_spikes = []
         self.post_spikes = []
@@ -19,7 +30,7 @@ class Synapse:
         self.weight_track = []
         self.track_weight = False
     
-    def stdp(self, lr_ex, lr_inh):
+    def stdp(self):
         if self.trainable:
             # NOTE: Need to watch this carefully, could become a potential memory leak if the pre and postsynaptic spike history is not dumped
             if len(self.post_spikes) >= 2:
@@ -40,7 +51,7 @@ class Synapse:
                     # self.w += dw_total
                     bef = self.w
                     for val in dt:
-                        self.w += dw(val, self.w, 10 * msec, 10 * msec, lr_ex, lr_inh)
+                        self.w += dw(val, self.w, self.lp.tao_plus, self.lp.tao_minus, self.lp.lr_ex, self.lp.lr_inh, a_plus=self.lp.a_plus, a_minus=self.lp.a_minus)
                     
                     # if self.post_n.group_scope == "hidden" and len(relevant_pre) > 0:
                     #     print(dt)
@@ -56,7 +67,7 @@ class Synapse:
             elif len(self.post_spikes) == 1:
                 # cull presynaptic spikes that are outside of our window. We need to keep spikes that come 2*window after the postsynaptic
                 # spike, otherwise we may cull presynaptic spikes to the NEXT postsynaptic spike, which has not yet arrived
-                self.pre_spikes = [t for t in self.pre_spikes if -2*self.window <= self.post_spikes[0] - t <= self.window]
+                self.pre_spikes = [t for t in self.pre_spikes if -2*self.lp.window <= self.post_spikes[0] - t <= self.lp.window]
             elif len(self.post_spikes) == 0:
                 pass
             else:

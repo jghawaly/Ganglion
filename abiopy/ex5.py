@@ -24,7 +24,7 @@ params.v_hyperpolarization = -90.0 * mvolt
 
 # set up SNN time tracker
 tki = TimeKeeperIterator(timeunit=0.1*msec)
-duration = 100000 * msec
+duration = 100 * msec
 input_period = 1.0 * msec
 
 lgn = StructuredNeuralGroup(np.ones((28, 28)), 'lgn', neuron_params=params)
@@ -47,7 +47,8 @@ lts = 0
 lts2 = 0
 mnist_counter = 0
 for step in tki:
-    if (step - lts2)*tki.dt() >= 100*input_period:
+    if (step - lts2)*tki.dt() >= 200*input_period:
+        lts2 = step
         mnist_counter += 1
     if (step - lts)*tki.dt() >= input_period:
         lts = step
@@ -55,7 +56,7 @@ for step in tki:
         if mnist_counter % 2 != 0:
             lgn.dci(inp)
             
-    nn.run_order(["lgn", "v1_exc", "v1_inh"], tki, lr_ex=0.01, lr_inh=0.01)
+    nn.run_order(["lgn", "v1_exc", "v1_inh"], tki)
 
     if step >= duration/tki.dt():
         break
