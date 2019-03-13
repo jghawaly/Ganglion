@@ -3,6 +3,7 @@ from timekeeper import TimeKeeperIterator
 from NeuralGroup import NeuralGroup, StructuredNeuralGroup, weight_map_between
 from NeuralNetwork import NeuralNetwork
 from Neuron import NeuronParams, SpikingNeuron
+from Synapse import STDPParams
 from units import *
 import random
 import numpy as np
@@ -18,13 +19,16 @@ from pyqtgraph.dockarea import *
 train_data, train_labels, test_data, test_labels = load_mnist()
 
 params = NeuronParams()
+l_params = STDPParams()
+l_params.lr_plus = 0.1
+l_params.lr_minus = 0.1
 
 params.membrane_time_constant = 30.0 * msec
 params.v_hyperpolarization = -90.0 * mvolt
 
 # set up SNN time tracker
 tki = TimeKeeperIterator(timeunit=0.1*msec)
-duration = 100 * msec
+duration = 5000 * msec
 input_period = 1.0 * msec
 
 lgn = StructuredNeuralGroup(np.ones((28, 28)), 'lgn', neuron_params=params)
@@ -35,7 +39,7 @@ v1_inh.track_vars(['q_t', 'v_m', 's_t'])
 v1_exc.track_vars(['q_t', 'v_m', 's_t'])
 
 nn = NeuralNetwork([lgn, v1_exc, v1_inh], "NN")
-nn.fully_connect("lgn", "v1_exc")
+nn.fully_connect("lgn", "v1_exc", learning_params=l_params)
 nn.one_to_one("v1_exc", "v1_inh", w_i=1.1, trainable=False)
 nn.fully_connect("v1_inh", "v1_exc", skip_self=True, w_i=1.1, trainable=False)
 
@@ -47,7 +51,7 @@ lts = 0
 lts2 = 0
 mnist_counter = 0
 for step in tki:
-    if (step - lts2)*tki.dt() >= 200*input_period:
+    if (step - lts2)*tki.dt() >= 20*input_period:
         lts2 = step
         mnist_counter += 1
     if (step - lts)*tki.dt() >= input_period:
