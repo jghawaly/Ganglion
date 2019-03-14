@@ -2,70 +2,90 @@ import sys
 from timekeeper import TimeKeeperIterator
 from NeuralGroup import NeuralGroup
 from NeuralNetwork import NeuralNetwork
-from Neuron import SpikingNeuron
+from Neuron import SpikingNeuron, NeuronParams
+from Synapse import Synapse
 from units import *
 import random
+import pyqtgraph as pg
+from pyqtgraph.Qt import QtCore, QtGui
+from pyqtgraph.dockarea import *
+import sys
 import numpy as np
 
+# Simple three layer neural network example
 
-tki = TimeKeeperIterator(timeunit=0.01*msec)
+if __name__ == "__main__":
+    tki = TimeKeeperIterator(timeunit=0.01*msec)
+    my_np = NeuronParams()
 
-g1 = NeuralGroup(0, 16, "input")
-g2 = NeuralGroup(2, 2, "hidden")
-g3 = NeuralGroup(0, 2, "output")
-g4 = NeuralGroup(2, 0, "output_inhib")
+    g1 = NeuralGroup(0, 10, "input", neuron_params=my_np)
+    g2 = NeuralGroup(0, 20, "hidden", neuron_params=my_np)
+    g3 = NeuralGroup(0, 1, "output", neuron_params=my_np)
+    g1.track_vars(['q_t', 'v_m', 's_t'])
+    g2.track_vars(['q_t', 'v_m', 's_t'])
+    g3.track_vars(['q_t', 'v_m', 's_t'])
 
-nn = NeuralNetwork([g1, g2, g3, g4], "my_net")
-nn.fully_connect(0, 1)
-nn.fully_connect(1, 2)
-nn.fully_connect(1, 3)
-nn.fully_connect(3, 2)
+    nn = NeuralNetwork([g1, g2, g3], "my_net")
+    nn.fully_connect("input", "hidden")
+    nn.fully_connect("hidden", "output")
 
-g3.track_vars(['q_t', 'v_m', 's_t'])
-g1.track_vars(['q_t', 'v_m', 's_t'])
-g2.track_vars(['q_t', 'v_m', 's_t'])
+    duration = 100 * msec
+    input_period = 0.1 * msec
 
-duration = 1000 * msec
-input_period = 1.0 * msec
+    lts = 0
+    for step in tki:
+        if (step - lts)*tki.dt() >= input_period:
+            lts = step
+            # add some random inputs to the first neuron group
+            g1.dci(np.random.randint(2, size=g1.n_num))
+             
+        nn.run_order(["input", "hidden", "output"], tki)
 
-volts = []
+        if step >= duration/tki.dt():
+            break
+    
+    n = g3.n[0]
+    
+    app = QtGui.QApplication(sys.argv)
 
-# i1 = np.zeros(30)
-# i1[0:15]= 1.0
-# i2 = np.zeros(30)
-# i2[15:] = 1.0
-i1 = np.array([1.0, 1.0, 1.0, 1.0,
-               0.0, 1.0, 1.0, 1.0,
-               0.0, 0.0, 1.0, 1.0,
-               0.0, 0.0, 0.0, 1.0])
-i2 = np.array([0.0, 1.0])
+    win = QtGui.QMainWindow()
+    area = DockArea()
+    win.setCentralWidget(area)
+    win.resize(2000,1000)
+    win.setWindowTitle('Network Activity')
 
-lts = 0
-tick = False
-for step in tki:
-    if (step - lts)*tki.dt() >= input_period:
-        lts = step
-        if tick:
-            g1.dci(i1)
-            g1.dci(i1)
-            if step < 5000:
-                g3.dci(i2)
-                g3.dci(i2)
+    d1 = Dock("D1")
+    d2 = Dock("D2")
+    d3 = Dock("D3")
+    area.addDock(d1, 'bottom')
+    area.addDock(d2, 'bottom', d1)
+    area.addDock(d3, 'bottom', d2)
+    w1 = pg.PlotWidget(title="Voltage Track")
+    w1.plot(n.voltage_track, pen=pg.mkPen(color=(39, 141, 141), width=3))
+    w1.plotItem.showGrid(x=True, y=True, alpha=1)
+    d1.addWidget(w1)
 
-        tick = not tick
-            
-    nn.run_order([0, 1, 3, 2], tki)
+    w2 = pg.PlotWidget(title="Charge Track")
+    w2.plot(n.charge_track, pen=pg.mkPen(color=(48, 196, 121), width=3))
+    w2.plotItem.showGrid(x=True, y=True, alpha=1)
+    w2.setXLink(w1)
+    d2.addWidget(w2)
 
-    volts.append(g2.spike_track)
+    w3 = pg.PlotWidget(title="Spike Track")
+    w3.plot(n.spike_track, pen=pg.mkPen(color=(195, 0, 146), width=3))
+    w3.plotItem.showGrid(x=True, y=True, alpha=1)
+    w3.setXLink(w2)
+    d3.addWidget(w3)
 
-    if step == duration/tki.dt():
-        break
+    win.show()
 
-import matplotlib.pyplot as plt
-
-volts = np.array(volts)
-volts = volts + volts.min()
-
-plt.plot(volts[:,0])
-plt.plot(volts[:,1] + 0.2)
-plt.show()
+    sys.exit(app.exec_())
+    # if sys.flags.interactive != 1 or not hasattr(pg.QtCore, 'PYQT_VERSION'):
+    #     pg.QtGui.QApplication.exec_()
+    # f, axarr = plt.subplots(3, sharex=True)
+    # f.suptitle('Single Neuron')
+    # for n in g2.n:
+    #     axarr[0].plot(n.voltage_track)
+    #     axarr[1].plot(n.current_track)
+    #     axarr[2].plot(n.spike_track)
+    # plt.show()

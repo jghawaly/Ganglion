@@ -11,7 +11,7 @@ class STDPParams:
         self.tao_plus = 10 * msec
         self.tao_minus = 10 * msec
         self.a_plus = 0.3
-        self.a_miunus = -0.6
+        self.a_minus = -0.6
 
 class Synapse:
     # NOTE: Add weight chaange tracking by turning self.w into a property call
@@ -51,7 +51,7 @@ class Synapse:
                     # self.w += dw_total
                     bef = self.w
                     for val in dt:
-                        self.w += dw(val, self.w, self.lp.tao_plus, self.lp.tao_minus, self.lp.lr_ex, self.lp.lr_inh, a_plus=self.lp.a_plus, a_minus=self.lp.a_minus)
+                        self.w += dw(val, self.w, self.lp.tao_plus, self.lp.tao_minus, self.lp.lr_plus, self.lp.lr_minus, a_plus=self.lp.a_plus, a_minus=self.lp.a_minus)
                     
                     # if self.post_n.group_scope == "hidden" and len(relevant_pre) > 0:
                     #     print(dt)

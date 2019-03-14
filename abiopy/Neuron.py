@@ -8,16 +8,16 @@ from learning import dw
 class NeuronParams:
     def __init__(self):
         self.v_rest = -70.0 * mvolt
-        self.v_inhibition = -70.0 * mvolt
+        self.v_inhibition = -75.0 * mvolt
         self.v_excitatory = 0.0 * mvolt
         self.v_leak = -70.0 * mvolt
         self.v_threshold = -50.0 * mvolt
         self.v_spike = 40.0 * mvolt
-        self.v_hyperpolarization = -75.0 * mvolt
+        self.v_hyperpolarization = -80.0 * mvolt
         self.membrane_capacitance = 200.0 * pfarad 
-        self.membrane_time_constant = 2.0 * msec
+        self.membrane_time_constant = 10.0 * msec
         self.leak_conductance = 10.0 * nsiem
-        self.max_q = 3.9 * pcoul # 4 pcoul should be enough to trigger with default settings
+        self.max_q = 1.0 * pcoul # 4 pcoul should be enough to trigger with default settings
 
 
 class SpikingNeuron:
@@ -93,26 +93,33 @@ class SpikingNeuron:
         self.v_membrane = self.v_membrane - (self.v_membrane - self.v_rest) * (1.0 - np.exp(-dt / self.membrane_time_constant))
         
         q_total = 0.0
-        for spike in self.dendritic_spikes:
-            q = 0.0
-            # spike coming from an inhibitory Neuron
-            if spike['neuron_type'] == self.__class__.inhibitory:
-                q = spike['synapse'].w * (self.max_q * (self.v_inhibition - self.v_membrane) / (self.v_threshold - self.v_inhibition))
-            # spike coming from an excitatory Neuron
-            elif spike['neuron_type'] == self.__class__.excitatory:
-                q = spike['synapse'].w * (self.max_q * (self.v_excitatory - self.v_membrane) / (self.v_excitatory - self.v_rest))
-            # spike coming from an artificial direct charge injection
-            elif spike['neuron_type'] == self.__class__.dci:
-                q = spike['weight'] * (self.max_q * (self.v_excitatory - self.v_membrane) / (self.v_excitatory - self.v_rest))
-            
-            # update membrane potential
-            self.v_membrane = self.v_membrane + q / self.membrane_capacitance
-            # for tracking charge injection
-            q_total += q
+        # disable membrane potentiation for however long it takes for the neuron's membrane potential to be released from the
+        # post-spike hyperpolarization
+        if self.v_membrane >= self.v_inhibition:
+            for spike in self.dendritic_spikes:
+                q = 0.0
+                # spike coming from an inhibitory Neuron
+                if spike['neuron_type'] == self.__class__.inhibitory:
+                    q = spike['synapse'].w * (self.max_q * (self.v_inhibition - self.v_membrane) / (self.v_threshold - self.v_inhibition))
+                # spike coming from an excitatory Neuron
+                elif spike['neuron_type'] == self.__class__.excitatory:
+                    q = spike['synapse'].w * (self.max_q * (self.v_excitatory - self.v_membrane) / (self.v_excitatory - self.v_rest))
+                # spike coming from an artificial direct charge injection
+                elif spike['neuron_type'] == self.__class__.dci:
+                    q = spike['weight'] * (self.max_q * (self.v_excitatory - self.v_membrane) / (self.v_excitatory - self.v_rest))
+                
+                # update membrane potential
+                self.v_membrane = self.v_membrane + q / self.membrane_capacitance
+                # for tracking charge injection
+                q_total += q
 
         self.dendritic_spikes = []
 
-        
+        # this may occur when inhibitory weights greater than 1.0 occur, useful for forcing a neuron to spike by raising weight to
+        # a very large number
+        if self.v_membrane < self.v_hyperpolarization:
+            self.v_membrane = self.v_inhibition
+
         output = self.v_membrane
         # check if ready to fire
         if self.v_membrane >= self.v_threshold:

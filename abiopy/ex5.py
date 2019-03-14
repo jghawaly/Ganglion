@@ -22,27 +22,30 @@ params = NeuronParams()
 l_params = STDPParams()
 l_params.lr_plus = 0.1
 l_params.lr_minus = 0.1
-
-params.membrane_time_constant = 30.0 * msec
-params.v_hyperpolarization = -90.0 * mvolt
+l_params.window = 20 * msec
 
 # set up SNN time tracker
 tki = TimeKeeperIterator(timeunit=0.1*msec)
-duration = 5000 * msec
-input_period = 1.0 * msec
+duration = 100000 * msec
+input_period = 2.0 * msec
 
 lgn = StructuredNeuralGroup(np.ones((28, 28)), 'lgn', neuron_params=params)
-v1_exc = StructuredNeuralGroup(np.ones((5, 5)), 'v1_exc', neuron_params=params)
-v1_inh = StructuredNeuralGroup(np.zeros((5, 5)), 'v1_inh', neuron_params=params)
+v1_exc = StructuredNeuralGroup(np.ones((2, 2)), 'v1_exc', neuron_params=params)
+v1_inh = StructuredNeuralGroup(np.zeros((2, 2)), 'v1_inh', neuron_params=params)
 
 v1_inh.track_vars(['q_t', 'v_m', 's_t'])
 v1_exc.track_vars(['q_t', 'v_m', 's_t'])
 
 nn = NeuralNetwork([lgn, v1_exc, v1_inh], "NN")
 nn.fully_connect("lgn", "v1_exc", learning_params=l_params)
-nn.one_to_one("v1_exc", "v1_inh", w_i=1.1, trainable=False)
-nn.fully_connect("v1_inh", "v1_exc", skip_self=True, w_i=1.1, trainable=False)
+nn.one_to_one("v1_exc", "v1_inh", w_i=100.0, trainable=False)
+nn.fully_connect("v1_inh", "v1_exc", skip_self=True, w_i=100.0, trainable=False)
 
+train_data = train_data[1:5]
+
+# for i in train_data:
+#     plt.imshow(i)
+#     plt.show()
 
 # clear stdout
 os.system('cls' if os.name == 'nt' else 'clear')
@@ -51,12 +54,14 @@ lts = 0
 lts2 = 0
 mnist_counter = 0
 for step in tki:
-    if (step - lts2)*tki.dt() >= 20*input_period:
+    if (step - lts2)*tki.dt() >= 100*input_period:
         lts2 = step
         mnist_counter += 1
+        if mnist_counter == 4:
+            mnist_counter = 0
     if (step - lts)*tki.dt() >= input_period:
         lts = step
-        inp = train_data[mnist_counter] * input_period / (17.0*msec)
+        inp = train_data[mnist_counter]
         if mnist_counter % 2 != 0:
             lgn.dci(inp)
             
