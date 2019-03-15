@@ -1,34 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+def genspikes(r=60, dt=1e-3):
+    ta = np.arange(0, 1, dt)
 
-vr = -50
-v1 = 40
-tm = 10
+    count = 0
+    for t in ta:
+        if np.random.random() <= r*dt:
+            count += 1
+    
+    return count
 
-def dv1(volts, dt):
-    return volts - (volts-vr)*(1.0 - np.exp(-dt/tm))
+counts = []
+for _ in range(100):
+    counts.append(genspikes())
 
-
-def dv2(volts, dt):
-    return volts * np.exp(-dt/tm)
-
-one = []
-two = []
-
-for x in range(20):
-    v1 = dv1(v1, 1)
-    one.append(v1)
-
-vr = -50
-v1 = 40
-tm = 10
-
-for x in range(20):
-    v1 = dv2(v1, 1)
-    two.append(v1)
-
-plt.plot(one, "r")
-plt.plot(two, "b")
-plt.legend(("one", "two"))
-plt.show()
+print(np.mean(counts))

@@ -20,7 +20,7 @@ class NeuralNetwork:
 
         return None
 
-    def fully_connect(self, g1_tag, g2_tag, connection_probability=1.0, trainable=True, w_i=None, skip_self=False, learning_params=None):
+    def fully_connect(self, g1_tag, g2_tag, connection_probability=1.0, trainable=True, w_i=None, skip_self=False, learning_params=None, minw=0.5, maxw=0.9):
         """
         Connect all of the neurons in g1 to every neuron in g2 with a given probability
         if skip_self is set to True, then for each neuron, n1 in g1, connect n1 to each neuron, n2 in g2, 
@@ -44,36 +44,36 @@ class NeuralNetwork:
                 # if we are allowed, connect n1 to n2
                 if can_connect:
                     if random.random() <= connection_probability:
-                        s = Synapse(0, n1, n2, random.uniform(0.01, 0.4) if w_i is None else w_i, trainable=trainable, params=learning_params)
+                        s = Synapse(0, n1, n2, random.uniform(minw, maxw) if w_i is None else w_i, trainable=trainable, params=learning_params)
                         n1.axonal_synapses.append(s)
                         n2.dendritic_synapses.append(s)
                         self.s.append(s)
     
-    def one_to_all(self, n1, g2_tag, connection_probability=1.0, trainable=True, w_i=None, learning_params=None):
+    def one_to_all(self, n1, g2_tag, connection_probability=1.0, trainable=True, w_i=None, learning_params=None, minw=0.5, maxw=0.9):
         """
         Connect a single neuron to every neuron in g2 with a given probability
         """
         g2 = self.g(g2_tag)
         for n2 in g2.n:
             if random.random() <= connection_probability:
-                s = Synapse(0, n1, n2, random.uniform(0.01, 0.4) if w_i is None else w_i, trainable=trainable, params=learning_params)
+                s = Synapse(0, n1, n2, random.uniform(minw, maxw) if w_i is None else w_i, trainable=trainable, params=learning_params)
                 n1.axonal_synapses.append(s)
                 n2.dendritic_synapses.append(s)
                 self.s.append(s)
 
-    def all_to_one(self, g1_tag, n2, connection_probability=1.0, trainable=True, w_i=None, learning_params=None):
+    def all_to_one(self, g1_tag, n2, connection_probability=1.0, trainable=True, w_i=None, learning_params=None, minw=0.5, maxw=0.9):
         """
         Connect every neuron in g1 to a single neuron with a given probability
         """
         g1 = self.g(g1_tag)
         for n1 in g1.n:
             if random.random() <= connection_probability:
-                s = Synapse(0, n1, n2, random.uniform(0.01, 0.4) if w_i is None else w_i, trainable=trainable, params=learning_params)
+                s = Synapse(0, n1, n2, random.uniform(minw, maxw) if w_i is None else w_i, trainable=trainable, params=learning_params)
                 n1.axonal_synapses.append(s)
                 n2.dendritic_synapses.append(s)
                 self.s.append(s)
     
-    def one_to_one(self, g1_tag, g2_tag, connection_probability=1.0, trainable=True, w_i=None, learning_params=None):
+    def one_to_one(self, g1_tag, g2_tag, connection_probability=1.0, trainable=True, w_i=None, learning_params=None, minw=0.5, maxw=0.9):
         """
         Connect each neuron in g1 to a single neuron in g2 corresponding to the same location in each neuron group
         """
@@ -93,7 +93,7 @@ class NeuralNetwork:
                     n2 = g2.n[idx[0]]
 
                 if random.random() <= connection_probability:
-                    s = Synapse(0, n1, n2, random.uniform(0.01, 0.4) if w_i is None else w_i, trainable=trainable, params=learning_params)
+                    s = Synapse(0, n1, n2, random.uniform(minw, maxw) if w_i is None else w_i, trainable=trainable, params=learning_params)
                     n1.axonal_synapses.append(s)
                     n2.dendritic_synapses.append(s)
                     self.s.append(s)
@@ -121,3 +121,8 @@ class NeuralNetwork:
             # loop over every synapse in the network
             for s in self.s:
                 s.stdp()
+    
+    def rest(self):
+        for g in self.neural_groups:
+            for n in g.n:
+                n.v_membrane = n.v_rest

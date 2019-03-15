@@ -51,7 +51,13 @@ class Synapse:
                     # self.w += dw_total
                     bef = self.w
                     for val in dt:
-                        self.w += dw(val, self.w, self.lp.tao_plus, self.lp.tao_minus, self.lp.lr_plus, self.lp.lr_minus, a_plus=self.lp.a_plus, a_minus=self.lp.a_minus)
+                        delta_w = dw(val, self.w, self.lp.tao_plus, self.lp.tao_minus, self.lp.lr_plus, self.lp.lr_minus, a_plus=self.lp.a_plus, a_minus=self.lp.a_minus)
+                        if delta_w < 0:
+                            print("My weight decreased! : %g"%delta_w)
+                        else:
+                            print("My weight increased! : %g"%delta_w)
+
+                        self.w += delta_w
                     
                     # if self.post_n.group_scope == "hidden" and len(relevant_pre) > 0:
                     #     print(dt)
