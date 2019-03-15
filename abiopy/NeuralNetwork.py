@@ -120,7 +120,7 @@ class NeuralNetwork:
             # update synaptic weights
             # loop over every synapse in the network
             for s in self.s:
-                s.stdp()
+                s.stdp(timekeeper.tick_time())
     
     def rest(self):
         for g in self.neural_groups:

@@ -3,6 +3,7 @@ import random
 import numpy as np
 from typing import List, Dict
 from learning import dw
+from numba import jit
 
 
 class NeuronParams:
@@ -18,6 +19,11 @@ class NeuronParams:
         self.membrane_time_constant = 10.0 * msec
         self.leak_conductance = 10.0 * nsiem
         self.max_q = 1.0 * pcoul # 4 pcoul should be enough to trigger with default settings
+
+
+@jit(nopython=True)
+def calc_q(weight: float, max_q: float, v_mem: float, v_diff: float, v_top: float, v_bot: float):
+    return weight * (max_q * (v_diff - v_mem) / (v_top - v_bot))
 
 
 class SpikingNeuron:
@@ -100,13 +106,16 @@ class SpikingNeuron:
                 q = 0.0
                 # spike coming from an inhibitory Neuron
                 if spike['neuron_type'] == self.__class__.inhibitory:
-                    q = spike['synapse'].w * (self.max_q * (self.v_inhibition - self.v_membrane) / (self.v_threshold - self.v_inhibition))
+                    # q = spike['synapse'].w * (self.max_q * (self.v_inhibition - self.v_membrane) / (self.v_threshold - self.v_inhibition))
+                    q = calc_q(spike['synapse'].w, self.max_q, self.v_membrane, self.v_inhibition, self.v_threshold, self.v_inhibition)
                 # spike coming from an excitatory Neuron
                 elif spike['neuron_type'] == self.__class__.excitatory:
-                    q = spike['synapse'].w * (self.max_q * (self.v_excitatory - self.v_membrane) / (self.v_excitatory - self.v_rest))
+                    # q = spike['synapse'].w * (self.max_q * (self.v_excitatory - self.v_membrane) / (self.v_excitatory - self.v_rest))
+                    q = calc_q(spike['synapse'].w, self.max_q, self.v_membrane, self.v_excitatory, self.v_excitatory, self.v_rest)
                 # spike coming from an artificial direct charge injection
                 elif spike['neuron_type'] == self.__class__.dci:
-                    q = spike['weight'] * (self.max_q * (self.v_excitatory - self.v_membrane) / (self.v_excitatory - self.v_rest))
+                    # q = spike['weight'] * (self.max_q * (self.v_excitatory - self.v_membrane) / (self.v_excitatory - self.v_rest))
+                    q = calc_q(spike['weight'], self.max_q, self.v_membrane, self.v_excitatory, self.v_excitatory, self.v_rest)
                 
                 # update membrane potential
                 self.v_membrane = self.v_membrane + q / self.membrane_capacitance
