@@ -18,15 +18,15 @@ from pyqtgraph.dockarea import *
 params = NeuronParams()
 params.max_q = 3.0 * pcoul
 l_params = STDPParams()
-l_params.lr_plus = 0.01
-l_params.lr_minus = 0.01
+l_params.lr_plus = 0.1
+l_params.lr_minus = 0.1
 l_params.window = 20 * msec
 l_params.tao_plus = 5 * msec
 l_params.tao_minus = 10 * msec
 
 # set up SNN time tracker
-tki = TimeKeeperIterator(timeunit=0.1*msec)
-duration = 1000 * msec
+tki = TimeKeeperIterator(timeunit=0.5*msec)
+duration = 5000 * msec
 
 lgn = StructuredNeuralGroup(np.ones((8, 8)), 'lgn', neuron_params=params)
 v1_exc = StructuredNeuralGroup(np.ones((10, 10)), 'v1_exc', neuron_params=params)
@@ -63,26 +63,17 @@ def genbars(s1, s2):
     
     return i
 
-
-
-# clear stdout
-# os.system('cls' if os.name == 'nt' else 'clear')
-# for neuron in v1_exc.n:
-#     wmap = weight_map_between(lgn, neuron)
-#     plt.imshow(wmap)
-#     plt.show()
-# keep track of the last time that the input image was switched
+d = genbars(8, 8)
 lts = 0
-data_index = 0
 for step in tki:
-    if (step - lts)*tki.dt() >= 30*msec:
+    if (step - lts)*tki.dt() >= 50*msec:
+        nn.rest()
         lts = step
-        data_index += 1
-        if data_index == 3:
-            data_index = 0
+        d = genbars(8, 8)
+        # plt.imshow(d)
+        # plt.show()
     
-    d = poisson_train(genbars(8, 8), tki.dt(), 1000.0)
-    lgn.dci(d)
+    lgn.dci(poisson_train(d, tki.dt(), 1000.0))
     nn.run_order(["lgn", "v1_exc", "v1_inh"], tki)
 
     sys.stdout.write("Current simulation time: %g milliseconds\r" % (step * tki.dt() / msec))
