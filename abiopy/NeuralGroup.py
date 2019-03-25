@@ -36,12 +36,28 @@ class NeuralGroup:
         for n in self.n:
             n.tracked_vars = v
     
-    def dci(self, c):
+    def dci(self, c, t):
+        """
+        Directly inject charge into the neurons through virtual synapses, where the values in c represent the weight of said synapses
+        """
         if c.shape[0] != len(self.n):
             raise ValueError("Input array must be same length as the number of neurons in this NeuronGroup, but are %g and %g." % (c.shape[0], len(self.n)))
         else:
             for i in range(len(c)):
-                self.n[i].dendritic_spikes.append({'neuron_type': SpikingNeuron.dci, 'weight': c[i]})
+                self.n[i].dendritic_spikes.append({'neuron_type': SpikingNeuron.dci, 'weight': c[i], 'timestep': t})
+    
+    def force_spike(self, c, t):
+        """
+        Directly inject enough charge into the neurons such that they spike. Input should be an array of binary numbers (float), where 0 and 1 
+        indicate the lack and existence of a spike in each neuron location, respectively
+        """
+        if c.shape[0] != len(self.n):
+            raise ValueError("Input array must be same length as the number of neurons in this NeuronGroup, but are %g and %g." % (c.shape[0], len(self.n)))
+        else:
+            for i in range(len(c)):
+                if c[i] >= 0.5:
+                    self.n[i].dendritic_spikes.append({'neuron_type': SpikingNeuron.spiker, 'timestep': t})
+
     @property
     def shape(self):
         return (len(self.n))
@@ -96,12 +112,27 @@ class StructuredNeuralGroup(NeuralGroup):
     def shape(self):
         return self.kernel.shape
     
-    def dci(self, c):
+    def dci(self, c, t):
+        """
+        Directly inject charge into the neurons through virtual synapses, where the values in c represent the weight of said synapses
+        """
         if c.shape != self.kernel.shape:
             raise ValueError("Input array must be same length as the number of neurons in this NeuronGroup, but are %g and %g." % (c.shape[0], len(self.n)))
         else:
             for item in self.n_structure:
-                item['neuron'].dendritic_spikes.append({'neuron_type': SpikingNeuron.dci, 'weight': c[item['kernel_loc']]})
+                item['neuron'].dendritic_spikes.append({'neuron_type': SpikingNeuron.dci, 'weight': c[item['kernel_loc']], 'timestep': t})
+    
+    def force_spike(self, c, t):
+        """
+        Directly inject enough charge into the neurons such that they spike. Input should be an array of binary numbers (float), where 0 and 1 
+        indicate the lack and existence of a spike in each neuron location, respectively
+        """
+        if c.shape != self.kernel.shape:
+            raise ValueError("Input array must be same length as the number of neurons in this NeuronGroup, but are %g and %g." % (c.shape[0], len(self.n)))
+        else:
+            for item in self.n_structure:
+                if c[item['kernel_loc']] >= 0.5:
+                    item['neuron'].dendritic_spikes.append({'neuron_type': SpikingNeuron.spiker, 'timestep': t})
 
 
 def weight_map_between(g: StructuredNeuralGroup, n: SpikingNeuron):
@@ -123,3 +154,37 @@ def weight_map_between(g: StructuredNeuralGroup, n: SpikingNeuron):
             w_map[item['kernel_loc']] = syn[0].w
     
     return w_map
+
+
+def vmem_map(g: StructuredNeuralGroup):
+    """
+    Get the membrane potential map of a StructuredNeuralGroup
+    """
+    # construct empty vmem map
+    v_map = np.zeros(g.kernel.shape, dtype=np.float)
+
+    # loop over group structure
+    for item in g.n_structure:
+        # get the current neuron
+        my_neuron = item['neuron']
+        
+        v_map[item['kernel_loc']] = my_neuron.v_membrane
+    
+    return v_map
+
+
+def spike_map(g: StructuredNeuralGroup):
+    """
+    Get the spike map of a StructuredNeuralGroup
+    """
+    # construct empty vmem map
+    s_map = np.zeros(g.kernel.shape, dtype=np.float)
+
+    # loop over group structure
+    for item in g.n_structure:
+        # get the current neuron
+        my_neuron = item['neuron']
+        
+        s_map[item['kernel_loc']] = my_neuron.spiked
+    
+    return s_map

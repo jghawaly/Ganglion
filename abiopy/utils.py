@@ -17,3 +17,17 @@ def load_mnist():
     test_labels = mnist_data.test.labels
 
     return train_data, train_labels, test_data, test_labels
+
+
+def poisson_train(inp: np.ndarray, dt, r):
+    # probability of generating a spike at each location
+    p = r*dt*inp
+    # sample random numbers
+    s = np.random.random(p.shape)
+    # spike output
+    o = np.zeros_like(inp, dtype=np.float)
+    # generate spikes
+    o[np.where(s <= p)] = 1.0
+
+    return o
+    

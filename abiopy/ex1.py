@@ -12,7 +12,7 @@ import numpy as np
 # Single neuron example
 
 if __name__ == "__main__":
-    tki = TimeKeeperIterator(timeunit=0.1*msec)
+    tki = TimeKeeperIterator(timeunit=0.01*msec)
     my_np = NeuronParams()
 
     g1 = NeuralGroup(0, 1, "neuron", neuron_params=my_np)
@@ -28,7 +28,7 @@ if __name__ == "__main__":
         if (step - lts)*tki.dt() >= input_period:
             lts = step
             for x in range(1):
-                g1.dci(np.ones(g1.shape))
+                g1.dci(np.ones(g1.shape), tki.tick_time())
              
         nn.run_order(["neuron"], tki)
 

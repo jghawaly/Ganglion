@@ -6,11 +6,11 @@ import numpy as np
 
 class STDPParams:
     def __init__(self):
-        self.window = 5 *msec
+        self.window = 50 *msec
         self.lr_plus = 0.01
         self.lr_minus = 0.01
-        self.tao_plus = 10 * msec
-        self.tao_minus = 10 * msec
+        self.tao_plus = 17 * msec
+        self.tao_minus = 34 * msec
         self.a_plus = 0.3
         self.a_minus = -0.6
 
