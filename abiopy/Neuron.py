@@ -334,7 +334,7 @@ class AdExNeuron:
         self.i_input = self.psp(current_timestep)
 
         # update membrane potential
-        dv_m = dt * (((self.v_r - self.v_m) + self.sf *np.exp((self.v_m - self.v_thr) / self.sf)) / self.tao_m - (self.i_offset + self.i_input + self.w) / self.c_m)
+        dv_m = dt * (((self.v_r - self.v_m) + self.sf *np.exp((self.v_m - self.v_thr) / self.sf)) / self.tao_m + (self.i_offset + self.i_input - self.w) / self.c_m)
         self.v_m += dv_m
 
         # update adaptation parameter

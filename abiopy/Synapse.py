@@ -1,4 +1,4 @@
-from Neuron import SpikingNeuron
+from Neuron import AdExNeuron
 from units import *
 from learning import dw
 import numpy as np
@@ -17,7 +17,7 @@ class STDPParams:
 
 class Synapse:
     # NOTE: Add weight chaange tracking by turning self.w into a property call
-    def __init__(self, id, pre_n: SpikingNeuron, post_n: SpikingNeuron, w: float=1.0, trainable: bool=True, params: STDPParams=None):
+    def __init__(self, id, pre_n: AdExNeuron, post_n: AdExNeuron, w: float=1.0, trainable: bool=True, params: STDPParams=None):
         self.pre_neuron = pre_n
         self.post_n = post_n
         self.w = w
@@ -62,7 +62,7 @@ class Synapse:
 
 class Synapse2:
     # NOTE: Add weight chaange tracking by turning self.w into a property call
-    def __init__(self, id, pre_n: SpikingNeuron, post_n: SpikingNeuron, w: float=1.0, trainable: bool=True, params: STDPParams=None):
+    def __init__(self, id, pre_n: AdExNeuron, post_n: AdExNeuron, w: float=1.0, trainable: bool=True, params: STDPParams=None):
         self.pre_neuron = pre_n
         self.post_n = post_n
         self.w = w

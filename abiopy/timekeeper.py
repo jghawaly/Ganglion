@@ -1,7 +1,7 @@
 from units import msec
 
 class TimeKeeper:
-    def __init__(self, timeunit=1.0*msec):
+    def __init__(self, timeunit=0.1*msec):
         self.tick = 1
         self.timeunit = timeunit
 

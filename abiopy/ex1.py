@@ -1,41 +1,43 @@
-import sys
 from timekeeper import TimeKeeperIterator
-from NeuralGroup import NeuralGroup, StructuredNeuralGroup
-from NeuralNetwork import NeuralNetwork
-from Neuron import SpikingNeuron, NeuronParams
+from Neuron import AdExNeuron, AdExParams
 from units import *
-import random
 import matplotlib.pyplot as plt
-import sys
 import numpy as np
 
 # Single neuron example
 
 if __name__ == "__main__":
-    tki = TimeKeeperIterator(timeunit=0.01*msec)
-    my_np = NeuronParams()
+    n = AdExNeuron(AdExNeuron.excitatory, AdExParams())
+    n.tracked_vars = ["v_m", "s_t", "wadex"]
 
-    g1 = NeuralGroup(0, 1, "neuron", neuron_params=my_np)
-    g1.track_vars(['q_t', 'v_m', 's_t'])
-
-    nn = NeuralNetwork([g1], "my_net")
-
-    duration = 30 * msec
-    input_period = 0.5 * msec
-
-    lts = 0
+    tki = TimeKeeperIterator(timeunit=0.1*msec)
+    duration = 300.0 * msec
     for step in tki:
-        if (step - lts)*tki.dt() >= input_period:
-            lts = step
-            for x in range(1):
-                g1.dci(np.ones(g1.shape), tki.tick_time())
+        # inject a spike at 50 msec
+        if 150*msec < tki.tick_time() <= 200*msec:
+            n.add_spike({'neuron_type': AdExNeuron.disi, 'weight': 0.1, 'timestep': tki.tick_time()})
              
-        nn.run_order(["neuron"], tki)
+        n.evaluate(tki.dt(), tki.tick_time())
 
         if step >= duration/tki.dt():
             break
-    
-    n = g1.n[0]
 
-    plt.plot(n.voltage_track)
+    times = np.arange(0,len(n.voltage_track), 1) * tki.dt() / msec
+    plt.plot(times, n.voltage_track)
+    plt.title("Voltage Track")
+    plt.xlabel("Time (msec)")
+    plt.ylabel("Membrane Potential (mvolt)")
     plt.show()
+
+    plt.plot(times, n.spike_track)
+    plt.title("Spike Track")
+    plt.xlabel("Time (msec)")
+    plt.ylabel("Spike Events (a.u.)")
+    plt.show()
+
+    plt.plot(times, n.wadex_track)
+    plt.title("Adaptation Conductance Track")
+    plt.xlabel("Time (msec)")
+    plt.ylabel("Adaptation Conductance (nsiem)")
+    plt.show()
+    

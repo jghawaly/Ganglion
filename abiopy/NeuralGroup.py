@@ -1,4 +1,4 @@
-from Neuron import AdExNeuron, NeuronParams
+from Neuron import AdExNeuron, AdExParams
 from Synapse import Synapse
 from timekeeper import TimeKeeperIterator
 from units import *
@@ -21,7 +21,7 @@ class NeuralGroup:
     
     def _construct(self):
         # either load default or user-specified neuron parameters
-        neuron_params = NeuronParams() if self.neuron_params is None else self.neuron_params
+        neuron_params = AdExParams() if self.neuron_params is None else self.neuron_params
 
         for i in range(self.i_num):
             self.n.append(AdExNeuron(AdExNeuron.inhibitory, neuron_params, group_scope=self.name))
@@ -88,7 +88,7 @@ class StructuredNeuralGroup(NeuralGroup):
     
     def _construct(self):
         # either load default or user-specified neuron parameters
-        neuron_params = NeuronParams() if self.neuron_params is None else self.neuron_params
+        neuron_params = AdExParams() if self.neuron_params is None else self.neuron_params
 
         for idx, i in np.ndenumerate(self.kernel):
             if i == 0:
