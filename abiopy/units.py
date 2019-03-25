@@ -9,6 +9,7 @@ msec = 1.0e-3    # milliseconds
 # capacitance
 farad = 1.0  # farad
 pfarad = 1.0e-12  # picofarad
+nfarad = 1.0e-9  # nanofarad
 
 # resistance
 ohm = 1.0  # ohms

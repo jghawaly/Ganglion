@@ -48,10 +48,12 @@ class Synapse:
                         dt = t_post - pre
                         # only consider presynaptic spikes that are within the learning window
                         relevant_dt = dt[np.where(np.abs(dt) <= self.lp.window)]
+                        bef = self.w
                         # update the weight of this synapse
                         for val in relevant_dt:
                             delta_w = dw(val, self.w, self.lp.tao_plus, self.lp.tao_minus, self.lp.lr_plus, self.lp.lr_minus, a_plus=self.lp.a_plus, a_minus=self.lp.a_minus)
                             self.w += delta_w
+                        # print("My weight changed! : %g"%(self.w - bef))
                         # remove the postsynaptic spikes that were just evaluated from the post-spikes list
                         self.post_spikes = self.post_spikes[1:]
                         # remove all presynaptic spikes that occured before the currently evaluated postsynaptic spike, as these are now irrelevant to future spikes

@@ -1,4 +1,4 @@
-from Neuron import SpikingNeuron, NeuronParams
+from Neuron import AdExNeuron, NeuronParams
 from Synapse import Synapse
 from timekeeper import TimeKeeperIterator
 from units import *
@@ -15,7 +15,7 @@ class NeuralGroup:
         self.n_num = inhib_neurons + excit_neurons
         self.neuron_params = neuron_params
 
-        self.n: List[SpikingNeuron] = []
+        self.n: List[AdExNeuron] = []
         self.s: List[Synapse] = []
         self._construct()
     
@@ -24,9 +24,9 @@ class NeuralGroup:
         neuron_params = NeuronParams() if self.neuron_params is None else self.neuron_params
 
         for i in range(self.i_num):
-            self.n.append(SpikingNeuron(SpikingNeuron.inhibitory, neuron_params, group_scope=self.name))
+            self.n.append(AdExNeuron(AdExNeuron.inhibitory, neuron_params, group_scope=self.name))
         for i in range(self.e_num):
-            self.n.append(SpikingNeuron(SpikingNeuron.excitatory, neuron_params, group_scope=self.name))
+            self.n.append(AdExNeuron(AdExNeuron.excitatory, neuron_params, group_scope=self.name))
     
     def evaluate(self, dt, current_timestep):
         for n in self.n:
@@ -36,27 +36,27 @@ class NeuralGroup:
         for n in self.n:
             n.tracked_vars = v
     
-    def dci(self, c, t):
+    def direct_injection(self, c, t, injection_type):
         """
-        Directly inject charge into the neurons through virtual synapses, where the values in c represent the weight of said synapses
+        Directly inject a form of input into the neurons through virtual synapses, where the values in c represent the current/weight of what is to be injected
         """
         if c.shape[0] != len(self.n):
             raise ValueError("Input array must be same length as the number of neurons in this NeuronGroup, but are %g and %g." % (c.shape[0], len(self.n)))
         else:
             for i in range(len(c)):
-                self.n[i].dendritic_spikes.append({'neuron_type': SpikingNeuron.dci, 'weight': c[i], 'timestep': t})
+                self.n[i].add_spike({'neuron_type': injection_type, 'weight': c[i], 'timestep': t})
     
-    def force_spike(self, c, t):
-        """
-        Directly inject enough charge into the neurons such that they spike. Input should be an array of binary numbers (float), where 0 and 1 
-        indicate the lack and existence of a spike in each neuron location, respectively
-        """
-        if c.shape[0] != len(self.n):
-            raise ValueError("Input array must be same length as the number of neurons in this NeuronGroup, but are %g and %g." % (c.shape[0], len(self.n)))
-        else:
-            for i in range(len(c)):
-                if c[i] >= 0.5:
-                    self.n[i].dendritic_spikes.append({'neuron_type': SpikingNeuron.spiker, 'timestep': t})
+    # def force_spike(self, c, t):
+    #     """
+    #     Directly inject enough current into the neurons such that they spike. Input should be an array of binary numbers (float), where 0 and 1 
+    #     indicate the lack and existence of a spike in each neuron location, respectively
+    #     """
+    #     if c.shape[0] != len(self.n):
+    #         raise ValueError("Input array must be same length as the number of neurons in this NeuronGroup, but are %g and %g." % (c.shape[0], len(self.n)))
+    #     else:
+    #         for i in range(len(c)):
+    #             if c[i] >= 0.5:
+    #                 self.n[i].add_spike({'neuron_type': AdExNeuron.spike_forcer, 'timestep': t, 'weight': 0.0})
 
     @property
     def shape(self):
@@ -92,9 +92,9 @@ class StructuredNeuralGroup(NeuralGroup):
 
         for idx, i in np.ndenumerate(self.kernel):
             if i == 0:
-                neuron = SpikingNeuron(SpikingNeuron.inhibitory, params=neuron_params, group_scope=self.name)
+                neuron = AdExNeuron(AdExNeuron.inhibitory, params=neuron_params, group_scope=self.name)
             else:
-                neuron = SpikingNeuron(SpikingNeuron.excitatory, params=neuron_params, group_scope=self.name)
+                neuron = AdExNeuron(AdExNeuron.excitatory, params=neuron_params, group_scope=self.name)
             self.n.append(neuron)
             self.n_structure.append({'kernel_loc': idx, "neuron": neuron})
     
@@ -112,30 +112,30 @@ class StructuredNeuralGroup(NeuralGroup):
     def shape(self):
         return self.kernel.shape
     
-    def dci(self, c, t):
+    def direct_injection(self, c, t, injection_type):
         """
-        Directly inject charge into the neurons through virtual synapses, where the values in c represent the weight of said synapses
+        Directly inject a form of input into the neurons through virtual synapses, where the values in c represent the current/weight of what is to be injected
         """
         if c.shape != self.kernel.shape:
             raise ValueError("Input array must be same length as the number of neurons in this NeuronGroup, but are %g and %g." % (c.shape[0], len(self.n)))
         else:
             for item in self.n_structure:
-                item['neuron'].dendritic_spikes.append({'neuron_type': SpikingNeuron.dci, 'weight': c[item['kernel_loc']], 'timestep': t})
+                item['neuron'].add_spike({'neuron_type': injection_type, 'weight': c[item['kernel_loc']], 'timestep': t})
     
-    def force_spike(self, c, t):
-        """
-        Directly inject enough charge into the neurons such that they spike. Input should be an array of binary numbers (float), where 0 and 1 
-        indicate the lack and existence of a spike in each neuron location, respectively
-        """
-        if c.shape != self.kernel.shape:
-            raise ValueError("Input array must be same length as the number of neurons in this NeuronGroup, but are %g and %g." % (c.shape[0], len(self.n)))
-        else:
-            for item in self.n_structure:
-                if c[item['kernel_loc']] >= 0.5:
-                    item['neuron'].dendritic_spikes.append({'neuron_type': SpikingNeuron.spiker, 'timestep': t})
+    # def force_spike(self, c, t):
+    #     """
+    #     Directly inject enough charge into the neurons such that they spike. Input should be an array of binary numbers (float), where 0 and 1 
+    #     indicate the lack and existence of a spike in each neuron location, respectively
+    #     """
+    #     if c.shape != self.kernel.shape:
+    #         raise ValueError("Input array must be same length as the number of neurons in this NeuronGroup, but are %g and %g." % (c.shape[0], len(self.n)))
+    #     else:
+    #         for item in self.n_structure:
+    #             if c[item['kernel_loc']] >= 0.5:
+    #                 item['neuron'].dendritic_spikes.append({'neuron_type': AdExNeuron.spiker, 'timestep': t, 'weight': 0.0})
 
 
-def weight_map_between(g: StructuredNeuralGroup, n: SpikingNeuron):
+def weight_map_between(g: StructuredNeuralGroup, n: AdExNeuron):
     """
     Get the weightmap between a StructuredNeuralGroup and an individual neuron
     """
