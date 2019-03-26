@@ -3,21 +3,28 @@ from Neuron import AdExNeuron, AdExParams
 from units import *
 import matplotlib.pyplot as plt
 import numpy as np
+import sys
 
 # Single neuron example
 
 if __name__ == "__main__":
-    n = AdExNeuron(AdExNeuron.excitatory, AdExParams())
-    n.tracked_vars = ["v_m", "s_t", "wadex"]
+    # single spike injection
 
     tki = TimeKeeperIterator(timeunit=0.1*msec)
-    duration = 300.0 * msec
+    duration = 100.0 * msec
+
+    n = AdExNeuron(AdExNeuron.excitatory, AdExParams(), tki)
+    n.tracked_vars = ["v_m", "s_t", "wadex"]
+
     for step in tki:
         # inject a spike at 50 msec
-        if 150*msec < tki.tick_time() <= 200*msec:
-            n.add_spike({'neuron_type': AdExNeuron.disi, 'weight': 0.1, 'timestep': tki.tick_time()})
-             
-        n.evaluate(tki.dt(), tki.tick_time())
+        if tki.tick_time() == 25 * msec:
+            n.add_spike({'neuron_type': AdExNeuron.desi, 'weight': 1.0, 'timestep': tki.tick_time()})
+        # n.add_spike({'neuron_type': AdExNeuron.dci, 'weight': -1 * namp, 'timestep': tki.tick_time()})
+            
+        n.evaluate()
+
+        sys.stdout.write("Current simulation time: %g milliseconds\r" % (step * tki.dt() / msec))
 
         if step >= duration/tki.dt():
             break

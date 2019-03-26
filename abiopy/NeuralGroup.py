@@ -8,7 +8,8 @@ from typing import List
 
 
 class NeuralGroup:
-    def __init__(self, inhib_neurons: int, excit_neurons: int, name, neuron_params=None):
+    def __init__(self, inhib_neurons: int, excit_neurons: int, name, tki, neuron_params=None):
+        self.tki = tki
         self.name = name
         self.i_num = inhib_neurons
         self.e_num = excit_neurons
@@ -24,13 +25,13 @@ class NeuralGroup:
         neuron_params = AdExParams() if self.neuron_params is None else self.neuron_params
 
         for i in range(self.i_num):
-            self.n.append(AdExNeuron(AdExNeuron.inhibitory, neuron_params, group_scope=self.name))
+            self.n.append(AdExNeuron(AdExNeuron.inhibitory, neuron_params, self.tki, group_scope=self.name))
         for i in range(self.e_num):
-            self.n.append(AdExNeuron(AdExNeuron.excitatory, neuron_params, group_scope=self.name))
+            self.n.append(AdExNeuron(AdExNeuron.excitatory, neuron_params, self.tki, group_scope=self.name))
     
-    def evaluate(self, dt, current_timestep):
+    def evaluate(self):
         for n in self.n:
-            n.evaluate(dt, current_timestep)
+            n.evaluate()
     
     def track_vars(self, v):
         for n in self.n:
@@ -76,7 +77,7 @@ class NeuralGroup:
 
 
 class StructuredNeuralGroup(NeuralGroup):
-    def __init__(self, kernel: np.ndarray, name, neuron_params=None):
+    def __init__(self, kernel: np.ndarray, name, tki, neuron_params=None):
         self.kernel = kernel
         self.n_structure = []
         try:
@@ -84,7 +85,7 @@ class StructuredNeuralGroup(NeuralGroup):
         except IndexError:
             area = kernel.shape[0]
 
-        super().__init__(area - np.count_nonzero(kernel), np.count_nonzero(kernel), name, neuron_params=neuron_params)
+        super().__init__(area - np.count_nonzero(kernel), np.count_nonzero(kernel), name, tki, neuron_params=neuron_params)
     
     def _construct(self):
         # either load default or user-specified neuron parameters
@@ -92,9 +93,9 @@ class StructuredNeuralGroup(NeuralGroup):
 
         for idx, i in np.ndenumerate(self.kernel):
             if i == 0:
-                neuron = AdExNeuron(AdExNeuron.inhibitory, params=neuron_params, group_scope=self.name)
+                neuron = AdExNeuron(AdExNeuron.inhibitory, neuron_params, self.tki, group_scope=self.name)
             else:
-                neuron = AdExNeuron(AdExNeuron.excitatory, params=neuron_params, group_scope=self.name)
+                neuron = AdExNeuron(AdExNeuron.excitatory, neuron_params, self.tki, group_scope=self.name)
             self.n.append(neuron)
             self.n_structure.append({'kernel_loc': idx, "neuron": neuron})
     

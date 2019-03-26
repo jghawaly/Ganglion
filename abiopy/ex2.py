@@ -15,7 +15,7 @@ import numpy as np
 # Simple three layer neural network example
 
 if __name__ == "__main__":
-    tki = TimeKeeperIterator(timeunit=0.01*msec)
+    tki = TimeKeeperIterator(timeunit=0.1*msec)
     my_np = AdExParams()
 
     g1 = StructuredNeuralGroup(np.ones((1, 10)), "input", neuron_params=my_np)
@@ -24,8 +24,8 @@ if __name__ == "__main__":
     g3.track_vars(['v_m', 's_t', 'wadex'])
 
     nn = NeuralNetwork([g1, g2, g3], "my_net")
-    nn.fully_connect("input", "hidden")
-    nn.fully_connect("hidden", "output")
+    nn.fully_connect("input", "hidden", minw=0.001, maxw=0.2)
+    nn.fully_connect("hidden", "output", minw=0.001, maxw=0.2)
 
     duration = 100 * msec
     input_period = 17 * msec
