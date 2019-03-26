@@ -16,17 +16,18 @@ from pyqtgraph.dockarea import *
 
 
 params = AdExParams()
+params.refractory_period = 0
 l_params = STDPParams()
-l_params.tao_plus = 10 * msec
+l_params.tao_plus = 3 * msec
 l_params.tao_minus = 10 * msec
-l_params.lr_minus = 0.9
+l_params.lr_minus = 0.1
 l_params.lr_plus = 0.1
 l_params.a_plus = 0.7
-l_params.a_minus = -0.0
+l_params.a_minus = -0.3
 
 # set up SNN time tracker
 tki = TimeKeeperIterator(timeunit=0.1*msec)
-duration = 100 * msec
+duration = 500 * msec
 
 lgn = StructuredNeuralGroup(np.ones((4, 4)), 'lgn', tki, neuron_params=params)
 v1_exc = StructuredNeuralGroup(np.ones((1, 8)), 'v1_exc', tki, neuron_params=params)
@@ -37,8 +38,8 @@ v1_exc.track_vars(['v_m', 's_t'])
 
 nn = NeuralNetwork([lgn, v1_exc, v1_inh], "NN", tki)
 nn.fully_connect("lgn", "v1_exc", learning_params=l_params, minw=0.001, maxw=0.2)
-nn.one_to_one("v1_exc", "v1_inh", w_i=0.1, trainable=False)
-nn.fully_connect("v1_inh", "v1_exc", skip_self=True, w_i=0.0, trainable=False)
+nn.one_to_one("v1_exc", "v1_inh", w_i=0.8, trainable=False)
+nn.fully_connect("v1_inh", "v1_exc", skip_self=True, w_i=0.8, trainable=False)
 
 def genbar(s1, s2):
     i = np.zeros((s1, s2), dtype=np.float)
@@ -67,7 +68,7 @@ for step in tki:
         lts = step
         d = genbar(4, 4)
     
-    lgn.direct_injection(poisson_train(d, tki.dt(), 64) * namp, tki.tick_time(), AdExNeuron.dci)
+    lgn.direct_injection(poisson_train(d, tki.dt(), 100), tki.tick_time(), AdExNeuron.desi)
     nn.run_order(["lgn", "v1_exc", "v1_inh"], tki)
 
     sys.stdout.write("Current simulation time: %g milliseconds\r" % (step * tki.dt() / msec))
