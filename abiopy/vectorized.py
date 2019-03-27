@@ -323,7 +323,7 @@ class NeuralNetwork:
                         # send out spikes to outgoing synapses
                         for s2 in self.synapses:
                             if s2.pre_n == g:
-                                s2.roll_history_and_assign(self, g.spike_count)
+                                s2.roll_history_and_assign(g.spike_count)
 
         
         # if train:
@@ -374,10 +374,12 @@ if __name__ == "__main__":
         duration = 1000.0 * msec
         g1 = SensoryNeuralGroup(np.ones((1,3), dtype=np.int), "Luny", tki, AdExParams())
         g2 = AdExNeuralGroup(np.ones((1,1), dtype=np.int), "George", tki, AdExParams())
-        g2.tracked_vars = ["v_m"]
+        g3 = AdExNeuralGroup(np.ones((1,2), dtype=np.int), "Ada", tki, AdExParams())
+        g3.tracked_vars = ["v_m"]
 
-        nn = NeuralNetwork([g1, g2], "blah", tki)
+        nn = NeuralNetwork([g1, g2, g3], "blah", tki)
         nn.fully_connect("Luny", "George", w_i=1.0)
+        nn.fully_connect("George", "Ada", w_i=1.0)
 
         vms = []
 
@@ -385,15 +387,15 @@ if __name__ == "__main__":
             # inject spikes into sensory layer
             g1.run(poisson_train(np.ones(g1.shape, dtype=np.float), tki.dt(), 64))
             # run all layers
-            nn.run_order(["Luny", "George"])
+            nn.run_order(["Luny", "George", "Ada"])
             
             # sys.stdout.write("Current simulation time: %g milliseconds\r" % (step * tki.dt() / msec))
 
             if step >= duration/tki.dt():
                 break
         print(time.time()-start)
-        times = np.arange(0,len(g2.v_m_track), 1) * tki.dt() / msec
-        v = np.ravel(g2.v_m_track)
+        times = np.arange(0,len(g3.v_m_track), 1) * tki.dt() / msec
+        v = np.ravel(g3.v_m_track)
         
         plt.plot(times, v)
         plt.title("Voltage Track")
