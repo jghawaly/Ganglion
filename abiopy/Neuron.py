@@ -34,6 +34,24 @@ class AdExParams:
         self.spike_window = 20.0 * msec
 
 
+@jit(nopython=True)
+def calc_dvm(dt, sf, vm, vthr, vr, tao_m, i_syn, w, c_m):
+    return dt * ((sf * np.exp((vm - vthr) / sf) - (vm - vr)) / tao_m - (i_syn - w) / c_m)
+
+
+@jit(nopython=True)
+def calc_dw(dt, a, v_m, v_r, w, tao_w):
+    return dt * ((a * (v_m - v_r) - w) / tao_w)
+
+
+@jit(nopython=True)
+def calc_isyn(spike_weight, v_m, vrev, gbar, delta_t, tao_syn):
+    if delta_t <= 0.0:
+        return 0.0
+    else:
+        return spike_weight * (v_m - vrev) * gbar * np.exp(-delta_t / tao_syn)
+
+
 class AdExNeuron:
     inhibitory=0  # inhibitory neuron
     excitatory=1  # excitatory neuron
@@ -142,19 +160,23 @@ class AdExNeuron:
             if spike_type == self.__class__.excitatory:
                 vrev = self.vrev_e 
                 gbar = self.gbar_e
-                isyn = spike_weight * (self.v_m - vrev) * gbar * np.exp(-delta_t / self.tao_syn) * np.heaviside(delta_t, 0.0)
+                # isyn = spike_weight * (self.v_m - vrev) * gbar * np.exp(-delta_t / self.tao_syn) * np.heaviside(delta_t, 0.0)
+                isyn = calc_isyn(spike_weight, self.v_m, vrev, gbar, delta_t, self.tao_syn)
             elif spike_type == self.__class__.inhibitory:
                 vrev = self.vrev_i
                 gbar = self.gbar_i
-                isyn = spike_weight * (self.v_m - vrev) * gbar * np.exp(-delta_t / self.tao_syn) * np.heaviside(delta_t, 0.0)
+                # isyn = spike_weight * (self.v_m - vrev) * gbar * np.exp(-delta_t / self.tao_syn) * np.heaviside(delta_t, 0.0)
+                isyn = calc_isyn(spike_weight, self.v_m, vrev, gbar, delta_t, self.tao_syn)
             elif spike_type == self.__class__.desi:
                 vrev = self.vrev_e
                 gbar = self.gbar_e
-                isyn = spike_weight * (self.v_m - vrev) * gbar * np.exp(-delta_t / self.tao_syn) * np.heaviside(delta_t, 0.0)
+                # isyn = spike_weight * (self.v_m - vrev) * gbar * np.exp(-delta_t / self.tao_syn) * np.heaviside(delta_t, 0.0)
+                isyn = calc_isyn(spike_weight, self.v_m, vrev, gbar, delta_t, self.tao_syn)
             elif spike_type == self.__class__.disi:
                 vrev = self.vrev_i
                 gbar = self.gbar_i
-                isyn = spike_weight * (self.v_m - vrev) * gbar * np.exp(-delta_t / self.tao_syn) * np.heaviside(delta_t, 0.0)
+                # isyn = spike_weight * (self.v_m - vrev) * gbar * np.exp(-delta_t / self.tao_syn) * np.heaviside(delta_t, 0.0)
+                isyn = calc_isyn(spike_weight, self.v_m, vrev, gbar, delta_t, self.tao_syn)
             elif spike_type == self.__class__.dci:
                 # NOTE: This is a hacky way to make this part work for direct charge injection, the spike "weight" in this case is actually
                 # the injection charge, not the weight
@@ -191,15 +213,16 @@ class AdExNeuron:
 
         if not self.in_refractory():
             # get input current
-            self.i_syn = self.psp()
+            i_syn = self.psp()
 
             # update membrane potential
-            # dv_m = dt * (((self.v_r - self.v_m) + self.sf *np.exp((self.v_m - self.v_thr) / self.sf)) / self.tao_m + (self.i_offset + self.i_input - self.w) / self.c_m)
-            dv_m = self.tki.dt() * ((self.sf * np.exp((self.v_m - self.v_thr) / self.sf) - (self.v_m - self.v_r)) / self.tao_m - (self.i_syn - self.w) / self.c_m)
-            self.v_m += dv_m
+            # dv_m = self.tki.dt() * ((self.sf * np.exp((self.v_m - self.v_thr) / self.sf) - (self.v_m - self.v_r)) / self.tao_m - (self.i_syn - self.w) / self.c_m)
+            dvm = calc_dvm(self.tki.dt(), self.sf, self.v_m, self.v_thr, self.v_r, self.tao_m, i_syn, self.w, self.c_m)
+            self.v_m += dvm
 
             # update adaptation parameter
-            dw = self.tki.dt() * ((self.a * (self.v_m - self.v_r) - self.w) / self.tao_w)
+            # dw = self.tki.dt() * ((self.a * (self.v_m - self.v_r) - self.w) / self.tao_w)
+            dw = calc_dw(self.tki.dt(), self.a, self.v_m, self.v_r, self.w, self.tao_w)
             self.w += dw
             
             # used for tracking the input charge
