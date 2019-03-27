@@ -25,7 +25,7 @@ def poisson_train(inp: np.ndarray, dt, r):
     # sample random numbers
     s = np.random.random(p.shape)
     # spike output
-    o = np.zeros_like(inp, dtype=np.float)
+    o = np.zeros(inp.shape, dtype=np.float)
     # generate spikes
     o[np.where(s <= p)] = 1.0
 

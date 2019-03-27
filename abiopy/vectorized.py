@@ -1,12 +1,14 @@
 import numpy as np
 from timekeeper import TimeKeeperIterator
 from units import *
+from utils import poisson_train
+from numba import roc, njit
 
 
 class AdExParams:
     def __init__(self):
         # self-defined parameters
-        self.refractory_period = 0.0 * msec
+        self.refractory_period = 2.0 * msec
 
         # Parameters from Brette and Gerstner (2005).
         self.v_r = -70.6 * mvolt
@@ -76,21 +78,31 @@ class SensoryNeuralGroup(NeuralGroup):
     This class defines a group of "neurons" that are not really neurons, they simple send "spikes"
     when the user tells them too
     """
-    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, v_spike=40*mvolt):
+    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: AdExParams):
         super().__init__(n_type, name, tki)
 
         # holds the NUMBER OF spikes that occured in the last evaluated time window
         self.spike_count = np.zeros(self.shape, dtype=np.int)
-        self.v_spike = v_spike
+        self.v_spike = params.v_spike
+
+        # construct reversal potential matrix
+        self.v_rev = np.zeros(n_type.shape, dtype=np.float)
+        self.v_rev[np.where(self.n_type==0)] = params.vrev_i
+        self.v_rev[np.where(self.n_type==1)] = params.vrev_e
+
+        # construct gbar matrix
+        self.gbar = np.zeros(n_type.shape, dtype=np.float)
+        self.gbar[np.where(self.n_type==0)] = params.gbar_i
+        self.gbar[np.where(self.n_type==1)] = params.gbar_e
 
         self.v_m_track = []
     
     def run(self, spike_count):
         if spike_count.shape != self.shape:
-            raise ValueError("Input spike matrix should be the same shape as the neuron matrix")
+            raise ValueError("Input spike matrix should be the same shape as the neuron matrix but are : %s and %s" % (str(spike_count.shape), str(self.shape)))
         self.spike_count = spike_count
 
-        output = np.zeros_like(self.shape, dtype=np.float)
+        output = np.zeros(self.shape, dtype=np.float)
 
         output[np.where(self.spike_count > 0)] = self.v_spike
 
@@ -98,6 +110,7 @@ class SensoryNeuralGroup(NeuralGroup):
             self.v_m_track.append(output)
 
         return output
+
 
 class AdExNeuralGroup(NeuralGroup):
     """
@@ -118,12 +131,12 @@ class AdExNeuralGroup(NeuralGroup):
         self.last_spike_count_update = 0.0
 
         # construct reversal potential matrix
-        self.v_rev = np.zeros_like(n_type, dtype=np.float)
+        self.v_rev = np.zeros(n_type.shape, dtype=np.float)
         self.v_rev[np.where(self.n_type==0)] = params.vrev_i
         self.v_rev[np.where(self.n_type==1)] = params.vrev_e
 
         # construct gbar matrix
-        self.gbar = np.zeros_like(n_type, dtype=np.float)
+        self.gbar = np.zeros(n_type.shape, dtype=np.float)
         self.gbar[np.where(self.n_type==0)] = params.gbar_i
         self.gbar[np.where(self.n_type==1)] = params.gbar_e
 
@@ -183,6 +196,7 @@ class AdExNeuralGroup(NeuralGroup):
         self.spiked = np.where(self.v_m >= self.v_thr)
         self.spike_count[self.spiked] += 1
         self.last_spike_count_update = self.tki.tick_time()
+        self.last_spike_time[self.spiked] = self.tki.tick_time()
 
         output = self.v_m.copy()
 
@@ -194,6 +208,11 @@ class AdExNeuralGroup(NeuralGroup):
 
         return output
 
+@njit
+def fast_row_roll(val, assignment):
+    val[1:,:] = val[0:-1,:]
+    val[0] = assignment
+    return val
 
 class SynapticGroup:
     # NOTE: Add weight chaange tracking by turning self.w into a property call
@@ -221,11 +240,11 @@ class SynapticGroup:
         # experimental
         self.num_histories = int(self.synp.spike_window / self.tki.dt())
         self.history = np.zeros((self.num_histories, self.num_synapses), dtype=np.float)
-        self.delta_t = self.construct_dt_matrix
+        self.delta_t = self.construct_dt_matrix()
 
     # experimental
     def construct_dt_matrix(self):
-        delta_t = np.zeros_like(self.history)
+        delta_t = np.zeros(self.history.shape, dtype=float)
         times = np.arange(1, self.num_histories+1, 1) * self.tki.dt()
         for idx, val in np.ndenumerate(times):
             delta_t[idx, :] = val
@@ -234,11 +253,11 @@ class SynapticGroup:
     
     # experimental
     def roll_history_and_assign(self, assignment):
-        self.history = np.roll(self.history, 1, axis=0)
-        self.history[0] = assignment
+        self.history = fast_row_roll(self.history, assignment)
 
     def calc_isyn(self):
-        return np.sum(self.history * self.w * (self.pre_n.v_m.ravel() - self.pre_n.v_rev.ravel()) * self.pre_n.gbar.ravel() * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))
+        # return np.sum(calc_isyn(self.history, self.w, self.post_n.v_m.ravel(), self.pre_n.v_rev.ravel(), self.pre_n.gbar.ravel(), self.delta_t, self.synp.tao_syn))
+        return np.sum(self.history * self.w * (self.post_n.v_m.ravel() - self.pre_n.v_rev.ravel()) * self.pre_n.gbar.ravel() * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))
 
 
 class NeuralNetwork:
@@ -271,6 +290,16 @@ class NeuralNetwork:
 
         # store the new synaptic group into memory
         self.synapses.append(s)
+    
+    def get_w_between(self, g1_tag, g2_tag):
+        g1 = self.g(g1_tag)
+        g2 = self.g(g2_tag)
+
+        for s in self.synapses:
+            if s.pre_n == g1 and s.post_n == g2:
+                return s.w 
+        
+        return None
         
     def run_order(self, group_order, train=True):
         # Evaluating the inputs into each neuron and generating outputs
@@ -283,7 +312,7 @@ class NeuralNetwork:
                 # send out spikes to outgoing synapses
                 for s2 in self.synapses:
                     if s2.pre_n == g:
-                        s2.roll_history_and_assign(self, g.spike_count) 
+                        s2.roll_history_and_assign(g.spike_count) 
             else:
                 for s in self.synapses:
                     # if this synapse group is presynaptic, then calculate the current coming across it and run that current through the current neural group
@@ -339,9 +368,11 @@ if __name__ == "__main__":
         plt.show()
     
     if mode == "single_network":
+        import time
+        start = time.time()
         tki = TimeKeeperIterator(timeunit=0.1*msec)
         duration = 1000.0 * msec
-        g1 = SensoryNeuralGroup(np.ones((1,1), dtype=np.int), "Luny", tki)
+        g1 = SensoryNeuralGroup(np.ones((1,3), dtype=np.int), "Luny", tki, AdExParams())
         g2 = AdExNeuralGroup(np.ones((1,1), dtype=np.int), "George", tki, AdExParams())
         g2.tracked_vars = ["v_m"]
 
@@ -352,7 +383,7 @@ if __name__ == "__main__":
 
         for step in tki:
             # inject spikes into sensory layer
-            g1.run(np.ones_like(g1.shape))
+            g1.run(poisson_train(np.ones(g1.shape, dtype=np.float), tki.dt(), 64))
             # run all layers
             nn.run_order(["Luny", "George"])
             
@@ -360,12 +391,14 @@ if __name__ == "__main__":
 
             if step >= duration/tki.dt():
                 break
-
+        print(time.time()-start)
         times = np.arange(0,len(g2.v_m_track), 1) * tki.dt() / msec
-        print(g2.v_m_track)
-        exit()
-        plt.plot(times, g2.v_m_track)
+        v = np.ravel(g2.v_m_track)
+        
+        plt.plot(times, v)
         plt.title("Voltage Track")
         plt.xlabel("Time (msec)")
         plt.ylabel("Membrane Potential (mvolt)")
         plt.show()
+
+        print(nn.get_w_between("Luny", "George"))
