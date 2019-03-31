@@ -3,44 +3,41 @@ import time
 from units import *
 from numba import njit, roc
 
-dt = 0.1 * msec
-window = 1.0 * msec
-n_synapses = 6
-num = int(window/dt)
+# x = 0.5*np.ones((2,2), dtype=np.float)
+# y = 0.1*np.ones((1,2), dtype=np.float)
 
-h = np.zeros((num, n_synapses), dtype=np.float)
-w = 0.5*np.ones((1,n_synapses))
+# m = x.shape[0] * x.shape[1]
+# n = y.shape[0] * y.shape[1]
 
-def roll_and_assign(val, assignment):
-    val = np.roll(val, 1, axis=0)
-    val[0] = assignment
-    return val
+# w = np.ones((m, n), dtype=np.float)
 
-@njit
-def roll_and_assign2(val, assignment):
+# print(x)
+# print(y)
+# print(w)
+# print(np.dot(x.ravel(), w))
+def fast_row_roll(val, assignment):
+    """
+    A JIT compiled method for roll the values of all rows in a givenm matrix down by one, and
+    assigning the first row to the given assignment
+    """
     val[1:,:] = val[0:-1,:]
     val[0] = assignment
     return val
+def construct_dt_matrix(v):
+    """
+    Construct the matrix that relates the rows of self.history to the elapsed time. This should
+    only be called once on initialization
+    """
+    delta_t = np.zeros(v.shape, dtype=float)
+    times = np.arange(1, 5+1, 1) * 0.1
+    for idx, val in np.ndenumerate(times):
+        delta_t[idx, :] = val
 
+    return delta_t
+x = np.ones((5, 2, 2))
+y = np.array([0, 0])
 
-f1 = np.array([1., 0., 0., 0., 1., 2.])
-
-h = roll_and_assign2(h, f1)
-print(h)
-
-time.sleep(1)
-f2 = np.array([0., 0., 1., 0., 0., 1.])
-h = roll_and_assign2(h, f2)
-
-print(h)
-print()
-
-time.sleep(1)
-
-st = time.perf_counter()
-for i in range(10000):
-    h = roll_and_assign2(h, np.zeros_like(f2))
-    # print(h)
-    # time.sleep(1)
-
-print(time.perf_counter() - st)
+r = np.zeros((2,2))
+r[np.where(y>0), :] = y[np.where(y>0)]
+x[0] = r
+print(x)
