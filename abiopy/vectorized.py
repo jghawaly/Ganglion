@@ -340,10 +340,12 @@ class SynapticGroup:
         # that connect to this particular neuron, and also so that we don't store spike histories of neurons
         # that didn't spike
         a = np.zeros((self.m, self.n))
-        print(a)
-        print(fired_neurons)
-        print(np.where(fired_neurons>0.5))
-        a[np.where(fired_neurons>0.5), :] = fired_neurons[np.where(fired_neurons>0.5)]
+        # print(a)
+        # print(fired_neurons)
+        # print(np.where(fired_neurons>0.5))
+        # x[0,np.where(y>0),:] = y[np.where(y>0),None]
+        a[np.where(fired_neurons>0.5), :] = fired_neurons[np.where(fired_neurons>0.5), None]
+        # print(a)
         
         self.roll_history_and_assign(a)
         if self.trainable:
@@ -409,6 +411,13 @@ class SynapticGroup:
         """
         Calculate the current flowing across this synaptic group, as a function of the spike history
         """
+        print(self.history.shape)
+        print(self.w.shape)
+        print(self.post_n.v_m.shape)
+        print(self.pre_n.v_rev.shape)
+        print(self.pre_n.gbar.shape)
+        print(self.delta_t.shape)
+        exit()
         return np.sum(self.history * self.w * (self.post_n.v_m - self.pre_n.v_rev) * self.pre_n.gbar * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))
     
     def reset(self):
