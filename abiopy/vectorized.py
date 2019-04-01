@@ -411,14 +411,22 @@ class SynapticGroup:
         """
         Calculate the current flowing across this synaptic group, as a function of the spike history
         """
-        print(self.history.shape)
-        print(self.w.shape)
-        print(self.post_n.v_m.shape)
-        print(self.pre_n.v_rev.shape)
-        print(self.pre_n.gbar.shape)
-        print(self.delta_t.shape)
-        exit()
-        return np.sum(self.history * self.w * (self.post_n.v_m - self.pre_n.v_rev) * self.pre_n.gbar * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))
+        # print(self.history.shape)
+        # print(self.w.shape)
+        # print(self.post_n.v_m.shape)
+        # print(self.pre_n.v_rev.shape)
+        # print(self.pre_n.gbar.shape)
+        # print(self.delta_t.shape)
+        # exit()
+        v_m_post = np.zeros((self.m, self.n), dtype=np.float)
+        v_rev_pre = np.zeros((self.m, self.n), dtype=np.float)
+        gbar_pre = np.zeros((self.m, self.n), dtype=np.float)
+
+        v_m_post[:] = self.post_n.v_m
+        v_rev_pre.T[:] = self.pre_n.v_rev
+        gbar_pre.T[:] = self.pre_n.gbar
+        # return np.sum(self.history * self.w * (self.post_n.v_m - self.pre_n.v_rev) * self.pre_n.gbar * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))
+        return np.sum(self.history * self.w * (v_m_post - v_rev_pre) * gbar_pre * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))
     
     def reset(self):
         """
@@ -564,8 +572,8 @@ if __name__ == "__main__":
         start = time.time()
         tki = TimeKeeperIterator(timeunit=0.1*msec)
         duration = 1000.0 * msec
-        g1 = SensoryNeuralGroup(np.ones(4, dtype=np.int), "Luny", tki, AdExParams())
-        g2 = AdExNeuralGroup(np.ones(9, dtype=np.int), "George", tki, AdExParams())
+        g1 = SensoryNeuralGroup(np.ones(2, dtype=np.int), "Luny", tki, AdExParams())
+        g2 = AdExNeuralGroup(np.ones(3, dtype=np.int), "George", tki, AdExParams())
         g3 = AdExNeuralGroup(np.ones(2, dtype=np.int), "Ada", tki, AdExParams())
         g3.tracked_vars = ["v_m"]
 
