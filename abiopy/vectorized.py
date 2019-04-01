@@ -217,7 +217,12 @@ class AdExNeuralGroup(NeuralGroup):
         self.w += dw
 
         # find indices of neurons that have fired
+        
         self.spiked = np.where(self.v_m >= self.v_thr)
+
+        # if np.nan in self.v_m:
+        #     print("FAIL")
+        #     exit()
         # add a new spike to the spike count for each neuron that fired
         self.spike_count[self.spiked] += 1
         # update the time at which the spike count array was modified
@@ -284,11 +289,6 @@ class SynapticGroup:
         self.last_history_update_time = -1.0  # this is the time at which the history array was last updated
 
         # stdp parameters
-        # self.num_stdp_histories = int(self.stdpp.stdp_window / self.tki.dt())
-        # self.stdp_r1 = np.zeros((self.num_stdp_histories, self.num_synapses), dtype=np.float)
-        # self.stdp_r2 = np.zeros((self.num_stdp_histories, self.num_synapses), dtype=np.float)
-        # self.stdp_o1 = np.zeros((self.num_stdp_histories, self.num_synapses), dtype=np.float)
-        # self.stdp_o2 = np.zeros((self.num_stdp_histories, self.num_synapses), dtype=np.float)
         self.stdp_r1 = np.zeros((self.m, self.n), dtype=np.float)
         self.stdp_r2 = np.zeros((self.m, self.n), dtype=np.float)
         self.stdp_o1 = np.zeros((self.m, self.n), dtype=np.float)
@@ -339,13 +339,12 @@ class SynapticGroup:
         # we need to reshape this to the size of the weight matrix, so that we only update weights of synapses
         # that connect to this particular neuron, and also so that we don't store spike histories of neurons
         # that didn't spike
+        f = np.where(fired_neurons>0.5)
         a = np.zeros((self.m, self.n))
-        # print(a)
-        # print(fired_neurons)
-        # print(np.where(fired_neurons>0.5))
-        # x[0,np.where(y>0),:] = y[np.where(y>0),None]
-        a[np.where(fired_neurons>0.5), :] = fired_neurons[np.where(fired_neurons>0.5), None]
-        # print(a)
+        a[f, :] = fired_neurons[f, None]
+
+        self.stdp_r1 += 1
+        self.stdp_r2 += 1
         
         self.roll_history_and_assign(a)
         if self.trainable:
@@ -358,8 +357,13 @@ class SynapticGroup:
         """
         # we need to reshape this to the size of the weight matrix, so that we only update weights of synapses
         # that connect to this particular neuron
+        f = np.where(fired_neurons>0.5)
         a = np.zeros((self.m, self.n))
-        a[:, np.where(fired_neurons>0.5)] = fired_neurons[np.where(fired_neurons>0.5)]
+        a[:, f] = fired_neurons[f]
+        
+        self.stdp_o1 += 1
+        self.stdp_o2 += 1
+
         if self.trainable:
             self._stdp(a, 'pre')  
 
@@ -375,20 +379,12 @@ class SynapticGroup:
         self.last_stdp_r2 = self.stdp_r2.copy()
 
         # calculate change in STDP spike trace parameters using Euler's method
-        # dr1 = -1.0 * self.tki.dt() * self.stdp_r1[0] / self.stdpp.tao_plus
-        # dr2 = -1.0 * self.tki.dt() * self.stdp_r2[0] / self.stdpp.tao_x
-        # do1 = -1.0 * self.tki.dt() * self.stdp_o1[0] / self.stdpp.tao_minus
-        # do2 = -1.0 * self.tki.dt() * self.stdp_o2[0] / self.stdpp.tao_y
         dr1 = -1.0 * self.tki.dt() * self.stdp_r1 / self.stdpp.tao_plus
         dr2 = -1.0 * self.tki.dt() * self.stdp_r2 / self.stdpp.tao_x
         do1 = -1.0 * self.tki.dt() * self.stdp_o1 / self.stdpp.tao_minus
         do2 = -1.0 * self.tki.dt() * self.stdp_o2 / self.stdpp.tao_y
 
         # roll and update the STDP spike traces based on the differentials just calculated
-        # self.stdp_r1 = fast_row_roll(self.stdp_r1, dr1 + self.stdp_r1[0])
-        # self.stdp_r2 = fast_row_roll(self.stdp_r2, dr2 + self.stdp_r2[0])
-        # self.stdp_o1 = fast_row_roll(self.stdp_o1, do1 + self.stdp_o1[0])
-        # self.stdp_o2 = fast_row_roll(self.stdp_o2, do2 + self.stdp_o2[0])
         self.stdp_r1 = dr1 + self.stdp_r1
         self.stdp_r2 = dr2 + self.stdp_r2
         self.stdp_o1 = do1 + self.stdp_o1
@@ -401,23 +397,21 @@ class SynapticGroup:
         if fire_time == 'pre':
             self.stdp_r1[si] += 1.0
             self.stdp_r2[si] += 1.0
-            self.w[si] -= self.stdp_o1[si] * (self.stdpp.a2_minus + self.stdpp.a3_minus * self.last_stdp_r2[si])
+            dw = self.stdp_o1[si] * (self.stdpp.a2_minus + self.stdpp.a3_minus * self.last_stdp_r2[si])
+            if len(dw) > 0:
+                print(dw)
+                exit()
+            self.w[si] -= dw
         elif fire_time == 'post':
             self.stdp_o1[si] += 1.0
             self.stdp_o2[si] += 1.0
+            # print(self.stdp_r1[si] * (self.stdpp.a2_plus + self.stdpp.a3_plus * self.last_stdp_o2[si]))
             self.w[si] += self.stdp_r1[si] * (self.stdpp.a2_plus + self.stdpp.a3_plus * self.last_stdp_o2[si])
 
     def calc_isyn(self):
         """
         Calculate the current flowing across this synaptic group, as a function of the spike history
         """
-        # print(self.history.shape)
-        # print(self.w.shape)
-        # print(self.post_n.v_m.shape)
-        # print(self.pre_n.v_rev.shape)
-        # print(self.pre_n.gbar.shape)
-        # print(self.delta_t.shape)
-        # exit()
         v_m_post = np.zeros((self.m, self.n), dtype=np.float)
         v_rev_pre = np.zeros((self.m, self.n), dtype=np.float)
         gbar_pre = np.zeros((self.m, self.n), dtype=np.float)
@@ -465,7 +459,7 @@ class NeuralNetwork:
         g1 = self.g(g1_tag)
         g2 = self.g(g2_tag)
 
-        s = SynapticGroup(g1, g2, self.tki)
+        s = SynapticGroup(g1, g2, self.tki, trainable=trainable)
 
         # store the new synaptic group into memory
         self.synapses.append(s)
@@ -578,15 +572,16 @@ if __name__ == "__main__":
         g3.tracked_vars = ["v_m"]
 
         nn = NeuralNetwork([g1, g2, g3], "blah", tki)
-        nn.fully_connect("Luny", "George", w_i=1.0)
-        nn.fully_connect("George", "Ada", w_i=1.0)
+        nn.fully_connect("Luny", "George", w_i=1.0, trainable=True)
+        nn.fully_connect("George", "Ada", w_i=1.0, trainable=True)
         # nn.set_trainability(False)
 
         vms = []
-
+        # print(nn.get_w_between("Luny", "George"))
+        
         for step in tki:
             # inject spikes into sensory layer
-            g1.run(poisson_train(0.1*np.ones(g1.shape, dtype=np.float), tki.dt(), 64))
+            g1.run(poisson_train(np.array([0.0, 1.0]), tki.dt(), 64))
             # run all layers
             nn.run_order(["Luny", "George", "Ada"])
             
@@ -594,11 +589,12 @@ if __name__ == "__main__":
 
             if step >= duration/tki.dt():
                 break
+        # print(nn.get_w_between("Luny", "George"))
         
-        print(time.time()-start)
         times = np.arange(0,len(g3.v_m_track), 1) * tki.dt() / msec
-
-        v = np.array(g3.v_m_track).T[0][0]
+        track = [i[0] for i in g3.v_m_track]
+        v = track
+        
 
         
         plt.plot(times, v)
@@ -607,4 +603,4 @@ if __name__ == "__main__":
         plt.ylabel("Membrane Potential (mvolt)")
         plt.show()
 
-        print(nn.get_w_between("Luny", "George"))
+        # print(nn.get_w_between("Luny", "George"))
