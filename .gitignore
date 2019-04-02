@@ -1,3 +1,5 @@
-/abiopy/__pycache__
+/ganglion/__pycache__
 /.vscode
-/abiopy/blah*
+/ganglion/blah*
+/ganglion/profiling*
+/ganglion/vectorized/__pycache__
