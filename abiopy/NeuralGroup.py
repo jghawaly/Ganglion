@@ -122,18 +122,6 @@ class StructuredNeuralGroup(NeuralGroup):
         else:
             for item in self.n_structure:
                 item['neuron'].add_spike({'neuron_type': injection_type, 'weight': c[item['kernel_loc']], 'timestep': t})
-    
-    # def force_spike(self, c, t):
-    #     """
-    #     Directly inject enough charge into the neurons such that they spike. Input should be an array of binary numbers (float), where 0 and 1 
-    #     indicate the lack and existence of a spike in each neuron location, respectively
-    #     """
-    #     if c.shape != self.kernel.shape:
-    #         raise ValueError("Input array must be same length as the number of neurons in this NeuronGroup, but are %g and %g." % (c.shape[0], len(self.n)))
-    #     else:
-    #         for item in self.n_structure:
-    #             if c[item['kernel_loc']] >= 0.5:
-    #                 item['neuron'].dendritic_spikes.append({'neuron_type': AdExNeuron.spiker, 'timestep': t, 'weight': 0.0})
 
 
 def weight_map_between(g: StructuredNeuralGroup, n: AdExNeuron):

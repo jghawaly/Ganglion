@@ -47,6 +47,7 @@ class SynapseParams:
 
 class STDPParams:
     def __init__(self):
+        self.lr = 0.0001
         self.a2_plus = 5.0e-10
         self.a3_plus = 6.2e-3
         self.a2_minus = 7.0e-3
@@ -343,8 +344,8 @@ class SynapticGroup:
         a = np.zeros((self.m, self.n))
         a[f, :] = fired_neurons[f, None]
 
-        self.stdp_r1 += 1
-        self.stdp_r2 += 1
+        self.stdp_r1[f, :] += 1
+        self.stdp_r2[f, :] += 1
         
         self.roll_history_and_assign(a)
         if self.trainable:
@@ -360,12 +361,17 @@ class SynapticGroup:
         f = np.where(fired_neurons>0.5)
         a = np.zeros((self.m, self.n))
         a[:, f] = fired_neurons[f]
+        # if np.sum(fired_neurons) >0:
+        #     print(fired_neurons)
+        #     print(a)
+        #     print(self.stdp_o1)
+        #     exit()
         
-        self.stdp_o1 += 1
-        self.stdp_o2 += 1
+        self.stdp_o1[:, f] += 1
+        self.stdp_o2[:, f] += 1
 
         if self.trainable:
-            self._stdp(a, 'pre')  
+            self._stdp(a, 'post')  
 
     def _stdp(self, fired_neurons, fire_time):
         """
@@ -397,16 +403,19 @@ class SynapticGroup:
         if fire_time == 'pre':
             self.stdp_r1[si] += 1.0
             self.stdp_r2[si] += 1.0
+
             dw = self.stdp_o1[si] * (self.stdpp.a2_minus + self.stdpp.a3_minus * self.last_stdp_r2[si])
-            if len(dw) > 0:
-                print(dw)
-                exit()
-            self.w[si] -= dw
+            
+            # self.w[si] -= dw
+            self.w[si] = np.clip(self.w[si] - self.stdpp.lr * dw, 0.0, 1.0)
         elif fire_time == 'post':
             self.stdp_o1[si] += 1.0
             self.stdp_o2[si] += 1.0
-            # print(self.stdp_r1[si] * (self.stdpp.a2_plus + self.stdpp.a3_plus * self.last_stdp_o2[si]))
-            self.w[si] += self.stdp_r1[si] * (self.stdpp.a2_plus + self.stdpp.a3_plus * self.last_stdp_o2[si])
+
+            dw = self.stdp_r1[si] * (self.stdpp.a2_plus + self.stdpp.a3_plus * self.last_stdp_o2[si])
+            
+            # self.w[si] += dw
+            self.w[si] = np.clip(self.w[si] + self.stdpp.lr * dw, 0.0, 1.0)
 
     def calc_isyn(self):
         """
@@ -565,7 +574,7 @@ if __name__ == "__main__":
         import time
         start = time.time()
         tki = TimeKeeperIterator(timeunit=0.1*msec)
-        duration = 1000.0 * msec
+        duration = 2000.0 * msec
         g1 = SensoryNeuralGroup(np.ones(2, dtype=np.int), "Luny", tki, AdExParams())
         g2 = AdExNeuralGroup(np.ones(3, dtype=np.int), "George", tki, AdExParams())
         g3 = AdExNeuralGroup(np.ones(2, dtype=np.int), "Ada", tki, AdExParams())
@@ -577,7 +586,7 @@ if __name__ == "__main__":
         # nn.set_trainability(False)
 
         vms = []
-        # print(nn.get_w_between("Luny", "George"))
+        print(nn.get_w_between("Luny", "George"))
         
         for step in tki:
             # inject spikes into sensory layer
@@ -589,7 +598,7 @@ if __name__ == "__main__":
 
             if step >= duration/tki.dt():
                 break
-        # print(nn.get_w_between("Luny", "George"))
+        print(nn.get_w_between("Luny", "George"))
         
         times = np.arange(0,len(g3.v_m_track), 1) * tki.dt() / msec
         track = [i[0] for i in g3.v_m_track]
