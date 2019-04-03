@@ -40,9 +40,9 @@ class NeuralNetwork:
 
         wm = np.ones((g1.shape[0], g2.shape[0]), dtype=np.float)
         if skip_one_to_one:
-            wm = np.fill_diagonal(wm, 0.0)
+            np.fill_diagonal(wm, 0.0)
 
-        s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm)
+        s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i)
 
         # store the new synaptic group into memory
         self.synapses.append(s)
@@ -61,9 +61,9 @@ class NeuralNetwork:
             raise ValueError("The shape of the first neural group must be the same shape of the second neural group but are : %s and %s" % (str(g1.shape), str(g2.shape)))
 
         wm = np.zeros((g1.shape[0], g2.shape[0]), dtype=np.float)
-        wm = np.fill_diagonal(wm, 1.0)
+        np.fill_diagonal(wm, 1.0)
 
-        s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm)
+        s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i)
 
         # store the new synaptic group into memory
         self.synapses.append(s)

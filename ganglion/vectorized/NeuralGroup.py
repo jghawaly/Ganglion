@@ -93,8 +93,8 @@ class AdExNeuralGroup(NeuralGroup):
     """
     This class defines a group of Adaptive Exponential Integrate and Fire Neurons, as described by Brette and Gerstner (2005)
     """
-    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: AdExParams):
-        super().__init__(n_type, name, tki)
+    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: AdExParams, field_shape=None):
+        super().__init__(n_type, name, tki, field_shape=field_shape)
 
         # custom parameters
         self.refractory_period = np.full(self.shape, params.refractory_period)  # refractory period for these neurons
