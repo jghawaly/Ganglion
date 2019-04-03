@@ -22,10 +22,10 @@ if __name__ == "__main__":
         vms = []
 
         for step in tki:
-            
+            # constant current input
             vms.append(n.run(-1 * namp)[0][0])
             
-            # sys.stdout.write("Current simulation time: %g milliseconds\r" % (step * tki.dt() / msec))
+            sys.stdout.write("Current simulation time: %g milliseconds\r" % (step * tki.dt() / msec))
 
             if step >= duration/tki.dt():
                 break
@@ -52,7 +52,7 @@ if __name__ == "__main__":
 
         vms = []
         print("Pre-training weight matrix")
-        print(nn.get_w_between("Luny", "George"))
+        print(nn.get_w_between_g_and_g("Luny", "George"))
         
         for step in tki:
             # inject spikes into sensory layer
@@ -66,7 +66,7 @@ if __name__ == "__main__":
                 break
         print("Post-training Weight Matrix")
         print("\n\n")
-        print(nn.get_w_between("Luny", "George"))
+        print(nn.get_w_between_g_and_g("Luny", "George"))
         
         times = np.arange(0,len(g3.v_m_track), 1) * tki.dt() / msec
         track = [i[0] for i in g3.v_m_track]

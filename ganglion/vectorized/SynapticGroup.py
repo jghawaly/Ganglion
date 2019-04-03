@@ -19,7 +19,7 @@ class SynapticGroup:
     """
     Defines a groups of synapses connecting two groups of neurons
     """
-    def __init__(self, pre_n: AdExNeuralGroup, post_n: AdExNeuralGroup, tki, initial_w: float=None, w_rand_min: float=0.0, w_rand_max: float=1.0, trainable: bool=True, syn_params: SynapseParams=None, stdp_params: STDPParams=None):
+    def __init__(self, pre_n: AdExNeuralGroup, post_n: AdExNeuralGroup, tki, initial_w: float=None, w_rand_min: float=0.0, w_rand_max: float=1.0, trainable: bool=True, syn_params: SynapseParams=None, stdp_params: STDPParams=None, weight_multiplier=None):
         self.synp = SynapseParams() if syn_params is None else syn_params  # synapse parameters are default if None is given
         self.stdpp = STDPParams() if stdp_params is None else stdp_params  # STDP parameters are default if None is given
         self.tki = tki  # reference to timekeeper object that is shared amongst the entire network
@@ -33,6 +33,10 @@ class SynapticGroup:
         self.w_rand_min = w_rand_min  # minimum weight for weight-initialization via uniform distribution
         self.w_rand_max = w_rand_max  # maximum weight for weight-initialization via uniform distribution
         self.initial_w = initial_w  # initial weight value for static weight initialization
+        if weight_multiplier is None:
+            self.weight_multiplier = np.ones((self.m, self.n), dtype=np.float)
+        else:
+            self.weight_multiplier = weight_multiplier
         self.w = self.construct_weights()  # construct weight matrix
         
         self.pre_spikes = []
@@ -56,12 +60,15 @@ class SynapticGroup:
         """
         This generates the weight matrix. This should be overriden for different connection types
         """
+        if self.weight_multiplier.shape != (self.m, self.n):
+            raise ValueError("The shape of the weight multiplier matrix must be the same shape of the weight matrix but are : %s and %s" % (str(self.weight_multiplier.shape), str((self.m, self.n))))
+
         if self.initial_w is None:
             w = np.random.uniform(low=self.w_rand_min, high=self.w_rand_max, size=(self.m, self.n))
         else:
             w = np.full((self.m, self.n), self.initial_w)
         
-        return w
+        return w * self.weight_multiplier
 
     def construct_dt_matrix(self):
         """
@@ -80,6 +87,8 @@ class SynapticGroup:
         Roll the spike history to timestamp t-1 and assign the latest incoming spikes
         """
         if self.tki.tick_time() == self.last_history_update_time:
+            print(self.pre_n.name)
+            print(self.post_n.name)
             raise RuntimeError("An attempt was made to modify the synaptic history matrix more than once in a single time step.")
         
         self.history = fast_row_roll(self.history, assignment)  
@@ -160,7 +169,6 @@ class SynapticGroup:
 
             dw = self.stdp_o1[si] * (self.stdpp.a2_minus + self.stdpp.a3_minus * self.last_stdp_r2[si])
             
-            # self.w[si] -= dw
             self.w[si] = np.clip(self.w[si] - self.stdpp.lr * dw, 0.0, 1.0)
         elif fire_time == 'post':
             self.stdp_o1[si] += 1.0
@@ -168,7 +176,6 @@ class SynapticGroup:
 
             dw = self.stdp_r1[si] * (self.stdpp.a2_plus + self.stdpp.a3_plus * self.last_stdp_o2[si])
             
-            # self.w[si] += dw
             self.w[si] = np.clip(self.w[si] + self.stdpp.lr * dw, 0.0, 1.0)
 
     def calc_isyn(self):
@@ -182,6 +189,7 @@ class SynapticGroup:
         v_m_post[:] = self.post_n.v_m
         v_rev_pre.T[:] = self.pre_n.v_rev
         gbar_pre.T[:] = self.pre_n.gbar
+        
         # return np.sum(self.history * self.w * (self.post_n.v_m - self.pre_n.v_rev) * self.pre_n.gbar * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))
         return np.sum(self.history * self.w * (v_m_post - v_rev_pre) * gbar_pre * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))
     

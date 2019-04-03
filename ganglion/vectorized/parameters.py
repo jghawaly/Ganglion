@@ -1,5 +1,6 @@
 from units import *
 
+
 class AdExParams:
     def __init__(self):
         # self-defined parameters
@@ -24,18 +25,10 @@ class AdExParams:
         self.gbar_i = 100.0 * nsiem
         self.vrev_e = 0.0 * mvolt
         self.vrev_i = -75.0 * mvolt
-        # self.spike_window = 20.0 * msec
 
 
 class SynapseParams:
     def __init__(self):
-        self.window = 50 *msec
-        self.lr_plus = 0.01
-        self.lr_minus = 0.01
-        self.tao_plus = 17 * msec
-        self.tao_minus = 34 * msec
-        self.a_plus = 0.3
-        self.a_minus = -0.6
         self.tao_syn = 5.0 * msec  # this probably needs to be 10 msec
         self.spike_window = 20.0 * msec
 

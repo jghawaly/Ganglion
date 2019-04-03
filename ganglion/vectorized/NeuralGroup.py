@@ -7,7 +7,7 @@ class NeuralGroup:
     This class is a base template containing only items that are common among most neuron models. It 
     should be overriden, and does not run on its own.
     """
-    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator):
+    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, field_shape=None):
         self.name = name  # the name of this neuron
         self.tki = tki  # the timekeeper isntance that is shared amongst the entire network
         
@@ -25,6 +25,12 @@ class NeuralGroup:
         self.num_inhibitory = area - np.count_nonzero(n_type)  # number of inhibitory neurons in this group
         self.tracked_vars = []  # variables to be tracked throughout the course of evaluation
 
+        # define the virtual shape of the neural group
+        if field_shape is None:
+            self.field_shape = self.shape
+        else:
+            self.field_shape = field_shape
+
     def run(self):
         """
         Update the state of the neurons.
@@ -39,10 +45,9 @@ class SensoryNeuralGroup(NeuralGroup):
     This class defines a group of "neurons" that are not really neurons, they simple send "spikes"
     when the user tells them too
     """
-    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: AdExParams):
-        super().__init__(n_type, name, tki)
+    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: AdExParams, field_shape=None):
+        super().__init__(n_type, name, tki, field_shape=field_shape)
 
-        
         self.spike_count = np.zeros(self.shape, dtype=np.int)  # holds the NUMBER OF spikes that occured in the last evaluated time window
         self.v_spike = np.full(self.shape, params.v_spike)  # spike potential
 
@@ -65,8 +70,10 @@ class SensoryNeuralGroup(NeuralGroup):
         Manually "fire" the neurons at the given input
         """
         # check to make sure the input has the same dimensions as the group's shape
-        if spike_count.shape != self.shape:
-            raise ValueError("Input spike matrix should be the same shape as the neuron matrix but are : %s and %s" % (str(spike_count.shape), str(self.shape)))
+        if spike_count.shape != self.field_shape:
+            raise ValueError("Input spike matrix should be the same shape as the neuron's field matrix but are : %s and %s" % (str(spike_count.shape), str(self.field_shape)))
+        
+        spike_count = np.reshape(spike_count, self.shape)
         
         self.spike_count = spike_count
 
