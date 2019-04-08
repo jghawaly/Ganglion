@@ -42,7 +42,7 @@ class NeuralGroup:
 
 class SensoryNeuralGroup(NeuralGroup):
     """
-    This class defines a group of "neurons" that are not really neurons, they simple send "spikes"
+    This class defines a group of "neurons" that are not really neurons, they simply send "spikes"
     when the user tells them too
     """
     def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: AdExParams, field_shape=None):
@@ -170,9 +170,9 @@ class AdExNeuralGroup(NeuralGroup):
         
         self.spiked = np.where(self.v_m >= self.v_thr)
 
-        # if np.nan in self.v_m:
-        #     print("FAIL")
-        #     exit()
+        if np.nan in self.v_m:
+            print("FAIL")
+            exit()
         # add a new spike to the spike count for each neuron that fired
         self.spike_count[self.spiked] += 1
         # update the time at which the spike count array was modified
