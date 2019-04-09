@@ -1,10 +1,11 @@
-from numba import njit
+from numba import jit, vectorize, float64, guvectorize, prange
 import numpy as np
 from NeuralGroup import AdExNeuralGroup
 from parameters import SynapseParams, STDPParams
+import multiprocessing as mp
 
 
-@njit
+@jit(nopython=True, parallel=True, nogil=True)
 def fast_row_roll(val, assignment):
     """
     A JIT compiled method for roll the values of all rows in a givenm matrix down by one, and
@@ -15,10 +16,33 @@ def fast_row_roll(val, assignment):
     return val
 
 
-@njit
-def isyn_jit(history, w, v_m_post, v_rev_pre, gbar_pre, delta_t, tao_syn):
+@jit(nopython=True)#, parallel=True, nogil=True)
+def isyn_jit_old(history, w, v_m_post, v_rev_pre, gbar_pre, delta_t, tao_syn):
     return np.sum(history * w * (v_m_post - v_rev_pre) * gbar_pre * np.exp(-1.0 * delta_t / tao_syn))
 
+@jit(nopython=True)
+def isyn_jit(history, w, v_m_post, v_rev_pre, gbar_pre, decayed_time):
+    """
+    Calculate synaptic current, JIT compiled for faster processing
+    """
+    return np.sum(history * w * (v_m_post - v_rev_pre) * gbar_pre * decayed_time)
+
+@jit(nopython=True, parallel=True, nogil=True, fastmath=True)
+def isyn_jit_parallel(history, w, v_m_post, v_rev_pre, gbar_pre, decayed_time):
+    """
+    Calculate synaptic current, JIT compiled for faster processing
+    """
+    return history * w * (v_m_post - v_rev_pre) * gbar_pre * decayed_time
+
+@jit(nopython=True, parallel=True, nogil=True)
+def isyn_jit_full_parallel(history, w, v_m_post, v_rev_pre, gbar_pre, decayed_time):
+    """
+    Run the isyn calculation for all timesteps in the history array and return the resulting array
+    """
+    res = np.zeros_like(history)
+    for i in prange(history.shape[0]):
+        res[i] = isyn_jit_parallel(history[i], w, v_m_post, v_rev_pre, gbar_pre, decayed_time[i])
+    return res
 
 class SynapticGroup:
     """
@@ -51,6 +75,7 @@ class SynapticGroup:
         self.history = np.zeros((self.num_histories, self.m, self.n), dtype=np.float)  # A num_histories * num_synapses matrix containing spike counts for each synapse, for each time evaluation step
         self.delta_t = self.construct_dt_matrix()  # construct the elapsed time correlation for spike history matrix
         self.last_history_update_time = -1.0  # this is the time at which the history array was last updated
+        self.time_decay_matrix = np.exp(-1.0 * self.delta_t / self.synp.tao_syn)  # this is the time decay matrix that is used for decaying the PSPs, precalculated for faster processing
 
         # stdp parameters
         self.stdp_r1 = np.zeros((self.m, self.n), dtype=np.float)
@@ -184,7 +209,6 @@ class SynapticGroup:
             
             self.w[si] = np.clip(self.w[si] + self.stdpp.lr * dw, 0.0, 1.0)
 
-    @profile
     def calc_isyn(self):
         """
         Calculate the current flowing across this synaptic group, as a function of the spike history
@@ -196,12 +220,17 @@ class SynapticGroup:
         v_m_post[:] = self.post_n.v_m
         v_rev_pre.T[:] = self.pre_n.v_rev
         gbar_pre.T[:] = self.pre_n.gbar
-        
-        # return np.sum(self.history * self.w * (v_m_post - v_rev_pre) * gbar_pre * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))
-        return isyn_jit(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.delta_t, self.synp.tao_syn)
+
+        # print(self.history.shape)
+        # print(self.time_decay_matrix.shape)
+        # print(self.history[0])
+        # exit()
     
-    def reset(self):
-        """
-        Reset the synaptic parameters to initial conditions, except for the weight matrix
-        """
-        self.history.fill(0.0)
+        # return np.sum(self.history * self.w * (v_m_post - v_rev_pre) * gbar_pre * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))  # this one is slow and works
+        # return isyn_jit_old(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.delta_t, self.synp.tao_syn) # this one is faster and works
+        # return isyn_jit(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix) # this one is even faster and works
+
+        # this is the fastest, and works
+        res = isyn_jit_full_parallel(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix)
+        return np.sum(res)
+        
