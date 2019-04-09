@@ -2,6 +2,7 @@ from SynapticGroup import SynapticGroup
 from NeuralGroup import SensoryNeuralGroup
 from parameters import STDPParams
 import numpy as np
+import multiprocessing
 
 
 class NeuralNetwork:
@@ -23,9 +24,9 @@ class NeuralNetwork:
             if g.name == tag:
                 return g
 
-        return None
+        raise ValueError("There is no NeuralGroup with the name %s in this NeuralNetwork." % tag)
 
-    def fully_connect(self, g1_tag, g2_tag, trainable=True, w_i=None, stdp_params=None, minw=0.01, maxw=0.9, skip_one_to_one=False):
+    def fully_connect(self, g1_tag, g2_tag, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9, skip_one_to_one=False):
         """
         Connect all of the neurons in g1 to every neuron in g2 with a given probability.
         if skip_one_to_one is set to True, then for each neuron, n1 in g1, connect n1 to each neuron, n2 in g2, 
@@ -42,12 +43,12 @@ class NeuralNetwork:
         if skip_one_to_one:
             np.fill_diagonal(wm, 0.0)
 
-        s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i)
+        s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i)
 
         # store the new synaptic group into memory
         self.synapses.append(s)
     
-    def one_to_one_connect(self, g1_tag, g2_tag, trainable=True, w_i=None, stdp_params=None, minw=0.01, maxw=0.9):
+    def one_to_one_connect(self, g1_tag, g2_tag, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9):
         """
         Connect all of the neurons in g1 to the neurons in g2 at the same position as they are in g1.
         """
@@ -63,7 +64,7 @@ class NeuralNetwork:
         wm = np.zeros((g1.shape[0], g2.shape[0]), dtype=np.float)
         np.fill_diagonal(wm, 1.0)
 
-        s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i)
+        s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i)
 
         # store the new synaptic group into memory
         self.synapses.append(s)
@@ -96,17 +97,16 @@ class NeuralNetwork:
         return None
     
     def set_trainability(self, val: bool):
-        """
-        Set the trainability of the synaptic groups in this network
-        """
+
+        """Set the trainability of the synaptic groups in this network"""
+
         for s in self.synapses:
             s.trainable = val
     
     def run_order(self, group_order):
-        """
-        Runs through each neuron group in the specified order, evaluating inputs received in the last dt time step
-        and generating/propagating resultant signals that would have occured in said time step
-        """
+        """Runs through each neuron group in the specified order, evaluating inputs received in the last dt time step
+        and generating/propagating resultant signals that would have occured in said time step"""
+
         # loop over each NeuronGroup
         for o in group_order:
             g = self.g(o)
@@ -134,19 +134,4 @@ class NeuralNetwork:
                         s.pre_fire_notify(g.spike_count)
                     if s.post_n == g:
                         s.post_fire_notify(g.spike_count)
-            # else:
-            #     for s in self.synapses:
-            #         # if this synapse group is presynaptic, then calculate the current coming across it and run that current through the current neural group
-            #         if s.post_n == g:
-            #             i = s.calc_isyn()
-            #             g.run(i)
-                        
-            #             # send out spikes to outgoing synapses
-            #             for s2 in self.synapses:
-            #                 # if this neuron group is the presynaptic group to this synapse group
-            #                 if s2.pre_n == g:
-            #                     # roll the synaptic spike history back a step and assign the new spikes
-            #                     # s2.roll_history_and_assign(g.spike_count)
-            #                     s2.pre_fire_notify(g.spike_count)
-            #                 else:
-            #                     s2.post_fire_notify(g.spike_count)
+

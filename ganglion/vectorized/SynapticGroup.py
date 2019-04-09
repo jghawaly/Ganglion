@@ -15,6 +15,11 @@ def fast_row_roll(val, assignment):
     return val
 
 
+@njit
+def isyn_jit(history, w, v_m_post, v_rev_pre, gbar_pre, delta_t, tao_syn):
+    return np.sum(history * w * (v_m_post - v_rev_pre) * gbar_pre * np.exp(-1.0 * delta_t / tao_syn))
+
+
 class SynapticGroup:
     """
     Defines a groups of synapses connecting two groups of neurons
@@ -55,6 +60,7 @@ class SynapticGroup:
 
         self.last_stdp_r2 = np.zeros((self.m, self.n), dtype=np.float)
         self.last_stdp_o2 = np.zeros((self.m, self.n), dtype=np.float)
+
 
     def construct_weights(self):
         """
@@ -178,6 +184,7 @@ class SynapticGroup:
             
             self.w[si] = np.clip(self.w[si] + self.stdpp.lr * dw, 0.0, 1.0)
 
+    @profile
     def calc_isyn(self):
         """
         Calculate the current flowing across this synaptic group, as a function of the spike history
@@ -190,8 +197,8 @@ class SynapticGroup:
         v_rev_pre.T[:] = self.pre_n.v_rev
         gbar_pre.T[:] = self.pre_n.gbar
         
-        # return np.sum(self.history * self.w * (self.post_n.v_m - self.pre_n.v_rev) * self.pre_n.gbar * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))
-        return np.sum(self.history * self.w * (v_m_post - v_rev_pre) * gbar_pre * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))
+        # return np.sum(self.history * self.w * (v_m_post - v_rev_pre) * gbar_pre * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))
+        return isyn_jit(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.delta_t, self.synp.tao_syn)
     
     def reset(self):
         """

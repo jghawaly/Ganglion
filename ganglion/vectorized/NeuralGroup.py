@@ -1,6 +1,7 @@
 import numpy as np
 from timekeeper import TimeKeeperIterator
 from parameters import AdExParams
+from numba import njit
 
 class NeuralGroup:
     """
@@ -149,7 +150,8 @@ class AdExNeuralGroup(NeuralGroup):
         """
         # if we are at a new time step since evaluating the neurons, then clear the spike count matrices
         if self.last_spike_count_update != self.tki.tick_time():
-            self.spike_count = np.zeros(self.shape, dtype=np.int)
+            # self.spike_count = np.zeros(self.shape, dtype=np.int)
+            self.spike_count.fill(0)
         
         self.spiked = np.zeros(self.shape, dtype=np.int)
 

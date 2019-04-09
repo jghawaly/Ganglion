@@ -1,7 +1,7 @@
 from timekeeper import TimeKeeperIterator
 from NeuralGroup import AdExNeuralGroup, SensoryNeuralGroup
 from NeuralNetwork import NeuralNetwork
-from parameters import AdExParams, STDPParams
+from parameters import AdExParams, STDPParams, SynapseParams
 from units import *
 from utils import poisson_train, load_mnist
 import numpy as np
@@ -11,10 +11,9 @@ import random
 import matplotlib.pyplot as plt
 
 
-if __name__ == "__main__":
-    start = time.time()
+if __name__ == '__main__': 
     tki = TimeKeeperIterator(timeunit=0.5*msec)
-    duration = 10000.0 * msec
+    duration = 1000.0 * msec
     g1 = SensoryNeuralGroup(np.ones(784, dtype=np.int), "inputs", tki, AdExParams(), field_shape=(28, 28))
     g2 = AdExNeuralGroup(np.ones(36, dtype=np.int), "exc", tki, AdExParams(), field_shape=(6,6))
     g3 = AdExNeuralGroup(np.zeros(36, dtype=np.int), "inh_lateral", tki, AdExParams(), field_shape=(6,6))
@@ -24,11 +23,13 @@ if __name__ == "__main__":
     nn = NeuralNetwork([g1, g2, g3, g4], "mnist", tki)
     lp = STDPParams()
     lp.lr = 0.001
-    nn.fully_connect("inputs", "exc", trainable=True, stdp_params=lp, minw=0.01, maxw=0.4)
-    nn.one_to_one_connect("exc", "inh_lateral", w_i=1.0, trainable=False)
-    nn.one_to_one_connect("exc", "inh_lateral2", w_i=1.0, trainable=False)
-    nn.fully_connect("inh_lateral", "exc", w_i=1.0, trainable=False, skip_one_to_one=True)
-    nn.fully_connect("inh_lateral2", "exc", w_i=1.0, trainable=False, skip_one_to_one=True)
+    sp = SynapseParams()
+    sp.spike_window = 15.0 * msec
+    nn.fully_connect("inputs", "exc", trainable=True, stdp_params=lp, minw=0.01, maxw=0.4, syn_params=sp)
+    nn.one_to_one_connect("exc", "inh_lateral", w_i=1.0, trainable=False, syn_params=sp)
+    nn.one_to_one_connect("exc", "inh_lateral2", w_i=1.0, trainable=False, syn_params=sp)
+    nn.fully_connect("inh_lateral", "exc", w_i=1.0, trainable=False, skip_one_to_one=True, syn_params=sp)
+    nn.fully_connect("inh_lateral2", "exc", w_i=1.0, trainable=False, skip_one_to_one=True, syn_params=sp)
 
     vms = []
 
@@ -57,6 +58,7 @@ if __name__ == "__main__":
     plt.show()
 
     # -------------------------------------------------------
+    st = time.time()
     mnist_counter = 0
     d = train_data[mnist_counter]
     lts = 0
@@ -80,8 +82,10 @@ if __name__ == "__main__":
 
         if step >= duration/tki.dt():
             break
-    
+
     print("\n\n")
+    et = time.time()
+    print(et-st)
     # -------------------------------------------------------
     arr = []
     for n in range(g2.shape[0]):
