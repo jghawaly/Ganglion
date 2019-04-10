@@ -1,4 +1,4 @@
-from numba import jit, vectorize, float64, guvectorize, prange
+from numba import jit, prange
 import numpy as np
 from NeuralGroup import AdExNeuralGroup
 from parameters import SynapseParams, STDPParams
@@ -85,7 +85,6 @@ class SynapticGroup:
 
         self.last_stdp_r2 = np.zeros((self.m, self.n), dtype=np.float)
         self.last_stdp_o2 = np.zeros((self.m, self.n), dtype=np.float)
-
 
     def construct_weights(self):
         """
@@ -231,6 +230,6 @@ class SynapticGroup:
         # return isyn_jit(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix) # this one is even faster and works
 
         # this is the fastest, and works
-        res = isyn_jit_full_parallel(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix)
-        return np.sum(res)
+        return np.sum(isyn_jit_full_parallel(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix))
+
         

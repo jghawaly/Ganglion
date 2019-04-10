@@ -35,15 +35,16 @@ if __name__ == "__main__":
     tki = TimeKeeperIterator(timeunit=0.5*msec)
     duration = 10000.0 * msec
     g1 = SensoryNeuralGroup(np.ones(1024, dtype=np.int), "inputs", tki, AdExParams(), field_shape=(32, 32))
-    g2 = AdExNeuralGroup(np.ones(100, dtype=np.int), "exc", tki, AdExParams(), field_shape=(10,10))
-    g3 = AdExNeuralGroup(np.zeros(100, dtype=np.int), "inh_lateral", tki, AdExParams(), field_shape=(10, 10))
+    g2 = AdExNeuralGroup(np.ones(64, dtype=np.int), "exc", tki, AdExParams(), field_shape=(8,8))
+    g3 = AdExNeuralGroup(np.zeros(64, dtype=np.int), "inh_lateral", tki, AdExParams(), field_shape=(8, 8))
 
     nn = NeuralNetwork([g1, g2, g3], "slugs", tki)
     lp = STDPParams()
     lp.lr = 0.0001
     sp = SynapseParams()
     sp.spike_window = 15.0 * msec
-    nn.fully_connect("inputs", "exc", trainable=True, stdp_params=lp, minw=0.01, maxw=0.4, syn_params=sp)
+    # nn.fully_connect("inputs", "exc", trainable=True, stdp_params=lp, minw=0.01, maxw=0.4, syn_params=sp)
+    nn.convolve_connect("inputs", "exc", np.zeros((4, 4), dtype=np.int), 4, 4, trainable=True, stdp_params=lp, minw=0.01, maxw=0.4, syn_params=sp)
     nn.one_to_one_connect("exc", "inh_lateral", w_i=1.0, trainable=False, syn_params=sp)
     nn.fully_connect("inh_lateral", "exc", w_i=1.0, trainable=False, skip_one_to_one=True, syn_params=sp)
 

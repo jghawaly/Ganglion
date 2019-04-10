@@ -62,10 +62,73 @@ class NeuralNetwork:
             raise ValueError("The shape of the first neural group must be the same shape of the second neural group but are : %s and %s" % (str(g1.shape), str(g2.shape)))
 
         wm = np.zeros((g1.shape[0], g2.shape[0]), dtype=np.float)
+        # one-to-one mapping
         np.fill_diagonal(wm, 1.0)
 
         s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i)
 
+        # store the new synaptic group into memory
+        self.synapses.append(s)
+    
+    def convolve_connect(self, g1_tag, g2_tag, patch, rstride, cstride, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9):
+        """
+        Connect the first group to the second group in a convolutional/patched pattern. NOTE: Find a better way to
+        describe this
+        """
+        if stdp_params is None:
+            stdp_params = STDPParams()
+        
+        g1 = self.g(g1_tag)
+        g2 = self.g(g2_tag)
+
+        wm = np.zeros((g1.shape[0], g2.shape[0]), dtype=np.float)
+        # patch mapping
+        a_rows = g1.field_shape[0]
+        a_cols = g1.field_shape[1]
+        b_rows = g2.field_shape[0]
+        b_cols = g2.field_shape[1]
+        patch_rows = patch.shape[0]
+        patch_cols = patch.shape[1]
+
+        # calculate number of strides that will be performed
+        num_strides_col = (a_cols - patch_cols) / cstride + 1
+        num_strides_row = (a_rows - patch_rows) / rstride + 1
+
+        # check if given parameters are valid
+        if a_rows < b_rows:
+            raise ValueError("The number of rows in matrix B must be greater than or equal to the number of rows in matrix A")
+        if a_cols < b_cols:
+            raise ValueError("The number of columns in matrix B must be greater than or equal to the number of columns in matrix A")
+        if not num_strides_col.is_integer():
+            raise ValueError("Uneven column stride")
+        if not num_strides_row.is_integer():
+            raise ValueError("Uneven row stride")
+        # convert our number of strides to integers, we couldn't do this before, since we wanted to check if the
+        # strides were valid based on whether or not they evaluated to whole numbers
+        num_strides_row = int(num_strides_row)
+        num_strides_col = int(num_strides_col)
+        # based on the number of strides, calculate the expected shape of group 2
+        expected_shape = (num_strides_row, num_strides_col)
+        if g2.field_shape != expected_shape:
+            raise ValueError("Expected shape of matrix B does not match expected shape of matrix A")
+
+        # maps indices from group field shapes to indices in wm
+        w_a_keys = np.reshape(np.arange(0, a_rows * a_cols, 1), (a_rows, a_cols))
+        w_b_keys = np.reshape(np.arange(0, b_rows * b_cols, 1), (b_rows, b_cols))
+
+        # fill wm in the appropriate locations
+        for r_s in range(num_strides_row):
+            r_index = r_s * rstride  # row index in A
+            for c_s in range(num_strides_col):
+                c_index = c_s * cstride  # col index in A
+
+                a_mod = w_a_keys[r_index: r_index + patch_rows, c_index: c_index + patch_cols].flatten()
+                
+                wm[a_mod, w_b_keys[r_s, c_s]] = 1.0
+
+        # define the synaptic group
+        s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i)
+        
         # store the new synaptic group into memory
         self.synapses.append(s)
 
