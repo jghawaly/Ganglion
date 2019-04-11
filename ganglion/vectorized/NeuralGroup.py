@@ -159,7 +159,7 @@ class AdExNeuralGroup(NeuralGroup):
         refrac = self.not_in_refractory()
 
         # calculate change in membrane potential for neurons not in refractory period
-        dvm = self.tki.dt() * ((self.sf * np.exp((self.v_m - self.v_thr) / self.sf) - (self.v_m - self.v_r)) / self.tao_m - (i_syn - self.w) / self.c_m) * refrac
+        dvm = self.tki.dt() * ((self.sf * np.exp((self.v_m - self.v_thr) / self.sf) - (self.v_m - self.v_r)) / self.tao_m - (i_syn + self.w) / self.c_m) * refrac
 
         # update membrane potential
         self.v_m += dvm
@@ -169,7 +169,6 @@ class AdExNeuralGroup(NeuralGroup):
         self.w += dw
 
         # find indices of neurons that have fired
-        
         self.spiked = np.where(self.v_m >= self.v_thr)
 
         if np.nan in self.v_m:
@@ -191,6 +190,9 @@ class AdExNeuralGroup(NeuralGroup):
 
         # change the actual membrane voltage to the resting potential for each neuron that fired
         self.v_m[self.spiked] = self.v_r[self.spiked]
+
+        # reset the w parameter
+        self.w[self.spiked] += self.b[self.spiked]
 
         # if we are tracking any variables, then append them to their respective lists, Note: This can use a lot of memory and cause slowdowns, so only do this when absolutely necessary
         if "v_m" in self.tracked_vars:

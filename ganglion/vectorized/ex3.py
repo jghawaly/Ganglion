@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 
 tki = TimeKeeperIterator(timeunit=0.5*msec)
-duration = 1000.0 * msec
+duration = 300000.0 * msec
 g1 = SensoryNeuralGroup(np.ones(784, dtype=np.int), "inputs", tki, AdExParams(), field_shape=(28, 28))
 g2 = AdExNeuralGroup(np.ones(36, dtype=np.int), "exc", tki, AdExParams(), field_shape=(6,6))
 g3 = AdExNeuralGroup(np.zeros(36, dtype=np.int), "inh_lateral", tki, AdExParams(), field_shape=(6,6))
@@ -21,7 +21,7 @@ g4 = AdExNeuralGroup(np.zeros(36, dtype=np.int), "inh_lateral2", tki, AdExParams
 
 nn = NeuralNetwork([g1, g2, g3, g4], "mnist", tki)
 lp = STDPParams()
-lp.lr = 0.001
+lp.lr = 0.0005
 sp = SynapseParams()
 sp.spike_window = 15.0 * msec
 nn.fully_connect("inputs", "exc", trainable=True, stdp_params=lp, minw=0.01, maxw=0.4, syn_params=sp)

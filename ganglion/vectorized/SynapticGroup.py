@@ -28,20 +28,20 @@ def isyn_jit(history, w, v_m_post, v_rev_pre, gbar_pre, decayed_time):
     return np.sum(history * w * (v_m_post - v_rev_pre) * gbar_pre * decayed_time)
 
 @jit(nopython=True, parallel=True, nogil=True, fastmath=True)
-def isyn_jit_parallel(history, w, v_m_post, v_rev_pre, gbar_pre, decayed_time):
+def isyn_jit_parallel(history, w, v_m_post, v_rev_pre, gbar_pre, decayed_time, weight_multiplier):
     """
     Calculate synaptic current, JIT compiled for faster processing
     """
-    return history * w * (v_m_post - v_rev_pre) * gbar_pre * decayed_time
+    return history * w * (v_m_post - v_rev_pre) * gbar_pre * decayed_time * weight_multiplier
 
 @jit(nopython=True, parallel=True, nogil=True)
-def isyn_jit_full_parallel(history, w, v_m_post, v_rev_pre, gbar_pre, decayed_time):
+def isyn_jit_full_parallel(history, w, v_m_post, v_rev_pre, gbar_pre, decayed_time, weight_multiplier):
     """
     Run the isyn calculation for all timesteps in the history array and return the resulting array
     """
     res = np.zeros_like(history)
     for i in prange(history.shape[0]):
-        res[i] = isyn_jit_parallel(history[i], w, v_m_post, v_rev_pre, gbar_pre, decayed_time[i])
+        res[i] = isyn_jit_parallel(history[i], w, v_m_post, v_rev_pre, gbar_pre, decayed_time[i], weight_multiplier)
     return res
 
 class SynapticGroup:
@@ -137,12 +137,16 @@ class SynapticGroup:
         a = np.zeros((self.m, self.n))
         a[f, :] = fired_neurons[f, None]
 
+        # we don't want to update synapses with zero weight
+        mask = self.w.copy()
+        mask[np.where(self.w > 0.0)] = 1.0
+
         self.stdp_r1[f, :] += 1
         self.stdp_r2[f, :] += 1
         
         self.roll_history_and_assign(a)
         if self.trainable:
-            self._stdp(a, 'pre') 
+            self._stdp(a * mask, 'pre') 
 
     def post_fire_notify(self, fired_neurons):
         """
@@ -154,17 +158,16 @@ class SynapticGroup:
         f = np.where(fired_neurons>0.5)
         a = np.zeros((self.m, self.n))
         a[:, f] = fired_neurons[f]
-        # if np.sum(fired_neurons) >0:
-        #     print(fired_neurons)
-        #     print(a)
-        #     print(self.stdp_o1)
-        #     exit()
+
+        # we don't want to update synapses with zero weight
+        mask = self.w.copy()
+        mask[np.where(self.w > 0.0)] = 1.0
         
         self.stdp_o1[:, f] += 1
         self.stdp_o2[:, f] += 1
 
         if self.trainable:
-            self._stdp(a, 'post')  
+            self._stdp(a * mask, 'post')  
 
     def _stdp(self, fired_neurons, fire_time):
         """
@@ -230,6 +233,6 @@ class SynapticGroup:
         # return isyn_jit(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix) # this one is even faster and works
 
         # this is the fastest, and works
-        return np.sum(isyn_jit_full_parallel(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix))
+        return np.sum(isyn_jit_full_parallel(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix, self.weight_multiplier))
 
         

@@ -11,19 +11,19 @@ import matplotlib.pyplot as plt
 
 
 if __name__ == "__main__":
-    # mode = "single_neuron"
-    mode = "single_network"
+    mode = "single_neuron"
+    # mode = "single_network"
     # single neuron simulation
     if mode == "single_neuron":
         tki = TimeKeeperIterator(timeunit=0.1*msec)
-        duration = 1000.0 * msec
+        duration = 10000.0 * msec
         n = AdExNeuralGroup(np.ones((1,1), dtype=np.int), "George", tki, AdExParams())
 
         vms = []
 
         for step in tki:
             # constant current input
-            vms.append(n.run(-1 * namp)[0][0])
+            vms.append(n.run(-1.0 * namp)[0][0])
             
             sys.stdout.write("Current simulation time: %g milliseconds\r" % (step * tki.dt() / msec))
 

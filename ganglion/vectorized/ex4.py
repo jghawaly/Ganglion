@@ -92,7 +92,7 @@ if __name__ == "__main__":
             g1.run(np.zeros(g1.field_shape, dtype=np.int))
         else:
             # inject spikes into sensory layer
-            g1.run(poisson_train(d, tki.dt(), 20))
+            g1.run(poisson_train(d, tki.dt(), 5))
         # run all layers
         nn.run_order(["inputs", "exc", "inh_lateral"])
         
