@@ -28,20 +28,20 @@ def isyn_jit(history, w, v_m_post, v_rev_pre, gbar_pre, decayed_time):
     return np.sum(history * w * (v_m_post - v_rev_pre) * gbar_pre * decayed_time)
 
 @jit(nopython=True, parallel=True, nogil=True, fastmath=True)
-def isyn_jit_parallel(history, w, v_m_post, v_rev_pre, gbar_pre, decayed_time, weight_multiplier):
+def isyn_jit_parallel(history, w, v_m_post, v_rev_pre, gbar_pre, decayed_time, weight_multiplier, alpha_time):
     """
     Calculate synaptic current, JIT compiled for faster processing
     """
-    return history * w * (v_m_post - v_rev_pre) * gbar_pre * decayed_time * weight_multiplier
+    return history * w * alpha_time * (v_m_post - v_rev_pre) * gbar_pre * decayed_time * weight_multiplier
 
 @jit(nopython=True, parallel=True, nogil=True)
-def isyn_jit_full_parallel(history, w, v_m_post, v_rev_pre, gbar_pre, decayed_time, weight_multiplier):
+def isyn_jit_full_parallel(history, w, v_m_post, v_rev_pre, gbar_pre, decayed_time, weight_multiplier, alpha_time):
     """
     Run the isyn calculation for all timesteps in the history array and return the resulting array
     """
     res = np.zeros_like(history)
     for i in prange(history.shape[0]):
-        res[i] = isyn_jit_parallel(history[i], w, v_m_post, v_rev_pre, gbar_pre, decayed_time[i], weight_multiplier)
+        res[i] = isyn_jit_parallel(history[i], w, v_m_post, v_rev_pre, gbar_pre, decayed_time[i], weight_multiplier, alpha_time[i])
     return res
 
 class SynapticGroup:
@@ -76,6 +76,7 @@ class SynapticGroup:
         self.delta_t = self.construct_dt_matrix()  # construct the elapsed time correlation for spike history matrix
         self.last_history_update_time = -1.0  # this is the time at which the history array was last updated
         self.time_decay_matrix = np.exp(-1.0 * self.delta_t / self.synp.tao_syn)  # this is the time decay matrix that is used for decaying the PSPs, precalculated for faster processing
+        self.alpha_time = self.delta_t / self.synp.tao_syn # this is for converting the exponential decay to an alpha function
 
         # stdp parameters
         self.stdp_r1 = np.zeros((self.m, self.n), dtype=np.float)
@@ -222,17 +223,12 @@ class SynapticGroup:
         v_m_post[:] = self.post_n.v_m
         v_rev_pre.T[:] = self.pre_n.v_rev
         gbar_pre.T[:] = self.pre_n.gbar
-
-        # print(self.history.shape)
-        # print(self.time_decay_matrix.shape)
-        # print(self.history[0])
-        # exit()
     
         # return np.sum(self.history * self.w * (v_m_post - v_rev_pre) * gbar_pre * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))  # this one is slow and works
         # return isyn_jit_old(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.delta_t, self.synp.tao_syn) # this one is faster and works
         # return isyn_jit(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix) # this one is even faster and works
 
         # this is the fastest, and works
-        return np.sum(isyn_jit_full_parallel(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix, self.weight_multiplier))
+        return np.sum(isyn_jit_full_parallel(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix, self.weight_multiplier, self.alpha_time))
 
         

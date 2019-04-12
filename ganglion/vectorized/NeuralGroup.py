@@ -131,6 +131,7 @@ class AdExNeuralGroup(NeuralGroup):
         self.v_m_track = []
         self.isyn_track = []
         self.spike_track = []
+        self.adap_track = []
 
     def not_in_refractory(self):
         """
@@ -161,19 +162,16 @@ class AdExNeuralGroup(NeuralGroup):
         # calculate change in membrane potential for neurons not in refractory period
         dvm = self.tki.dt() * ((self.sf * np.exp((self.v_m - self.v_thr) / self.sf) - (self.v_m - self.v_r)) / self.tao_m - (i_syn + self.w) / self.c_m) * refrac
 
-        # update membrane potential
-        self.v_m += dvm
-
-        # update adaptation parameter
+        # calculate adaptation change
         dw = self.tki.dt() * ((self.a * (self.v_m - self.v_r) - self.w) / self.tao_w) * refrac
+
+        # update variables
+        self.v_m += dvm
         self.w += dw
 
         # find indices of neurons that have fired
         self.spiked = np.where(self.v_m >= self.v_thr)
 
-        if np.nan in self.v_m:
-            print("FAIL")
-            exit()
         # add a new spike to the spike count for each neuron that fired
         self.spike_count[self.spiked] += 1
         # update the time at which the spike count array was modified
@@ -191,15 +189,17 @@ class AdExNeuralGroup(NeuralGroup):
         # change the actual membrane voltage to the resting potential for each neuron that fired
         self.v_m[self.spiked] = self.v_r[self.spiked]
 
-        # reset the w parameter
+        # increase the w parameter by b for all fired neurons
         self.w[self.spiked] += self.b[self.spiked]
 
         # if we are tracking any variables, then append them to their respective lists, Note: This can use a lot of memory and cause slowdowns, so only do this when absolutely necessary
         if "v_m" in self.tracked_vars:
             self.v_m_track.append(output.copy())
         if "i_syn" in self.tracked_vars:
-            self.isyn_track.append(i_syn.copy())
+            self.isyn_track.append(i_syn)
         if "spike" in self.tracked_vars:
             self.spike_track.append(self.spike_count.copy())
+        if "adap" in self.tracked_vars:
+            self.adap_track.append(self.w.copy())
 
         return output
