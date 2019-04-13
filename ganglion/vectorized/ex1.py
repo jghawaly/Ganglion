@@ -1,7 +1,7 @@
 from timekeeper import TimeKeeperIterator
-from NeuralGroup import AdExNeuralGroup, SensoryNeuralGroup
+from NeuralGroup import SensoryNeuralGroup, LIFNeuralGroup
 from NeuralNetwork import NeuralNetwork
-from parameters import AdExParams
+from parameters import LIFParams
 from units import *
 from utils import poisson_train
 import numpy as np
@@ -12,25 +12,26 @@ import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     mode = "single_neuron"
-    mode = "single_network"
+    # mode = "single_network"
     # single neuron simulation
     if mode == "single_neuron":
         tki = TimeKeeperIterator(timeunit=0.1*msec)
         duration = 1000.0 * msec
-        n = AdExNeuralGroup(np.ones((1,1), dtype=np.int), "George", tki, AdExParams())
-        n.tracked_vars = ["v_m", "adap", "i_syn"]
+        n = LIFNeuralGroup(np.ones((1,1), dtype=np.int), "George", tki, LIFParams())
+        n.tracked_vars = ["v_m", "i_syn"]
 
         for step in tki:
-            # constant current input
-            n.run(-1.0 * namp)[0][0]
-            
+            if tki.tick_time() <= 500*msec:
+                # constant current input
+                n.run(-1.0 * namp)
+            else:
+                n.run(0.0 * namp)
             sys.stdout.write("Current simulation time: %g milliseconds\r" % (step * tki.dt() / msec))
 
             if step >= duration/tki.dt():
                 break
 
         v = [i[0] for i in n.v_m_track] 
-        w = [i[0] for i in n.adap_track] 
         isyn = n.isyn_track
 
         times = np.arange(0,len(v), 1) * tki.dt() / msec
@@ -39,12 +40,6 @@ if __name__ == "__main__":
         plt.title("Voltage Track")
         plt.xlabel("Time (msec)")
         plt.ylabel("Membrane Potential (volt)")
-        plt.show()
-
-        plt.plot(times, w)
-        plt.title("Adaptation Current Track")
-        plt.xlabel("Time (msec)")
-        plt.ylabel("Adaptation Current (amp)")
         plt.show()
 
         plt.plot(times, isyn)
@@ -57,10 +52,10 @@ if __name__ == "__main__":
         start = time.time()
         tki = TimeKeeperIterator(timeunit=0.1*msec)
         duration = 1000.0 * msec
-        g1 = SensoryNeuralGroup(np.ones(2, dtype=np.int), "Luny", tki, AdExParams())
-        g2 = AdExNeuralGroup(np.ones(3, dtype=np.int), "George", tki, AdExParams())
-        g3 = AdExNeuralGroup(np.ones(2, dtype=np.int), "Ada", tki, AdExParams())
-        g3.tracked_vars = ["v_m", "i_syn", "adap"]
+        g1 = SensoryNeuralGroup(np.ones(2, dtype=np.int), "Luny", tki, LIFParams())
+        g2 = LIFNeuralGroup(np.ones(3, dtype=np.int), "George", tki, LIFParams())
+        g3 = LIFNeuralGroup(np.ones(2, dtype=np.int), "Ada", tki, LIFParams())
+        g3.tracked_vars = ["v_m", "i_syn"]
 
         nn = NeuralNetwork([g1, g2, g3], "blah", tki)
         nn.fully_connect("Luny", "George", w_i=1.0, trainable=True)
@@ -78,7 +73,6 @@ if __name__ == "__main__":
                 break
 
         v = [i[0] for i in g3.v_m_track] 
-        w = [i[0] for i in g3.adap_track] 
         isyn = [i[0] for i in g3.isyn_track] 
 
         times = np.arange(0,len(v), 1) * tki.dt() / msec
@@ -87,12 +81,6 @@ if __name__ == "__main__":
         plt.title("Voltage Track")
         plt.xlabel("Time (msec)")
         plt.ylabel("Membrane Potential (volt)")
-        plt.show()
-
-        plt.plot(times, w)
-        plt.title("Adaptation Current Track")
-        plt.xlabel("Time (msec)")
-        plt.ylabel("Adaptation Current (amp)")
         plt.show()
 
         plt.plot(times, isyn)

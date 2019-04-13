@@ -27,6 +27,26 @@ class AdExParams:
         self.vrev_i = -75.0 * mvolt
 
 
+class LIFParams:
+    def __init__(self):
+        # self-defined parameters
+        self.refractory_period = 2.0 * msec
+
+        # Parameters from Brette and Gerstner (2005).
+        self.v_r = -70.6 * mvolt
+        self.v_m = -70.6 * mvolt
+        self.v_spike = 40.0 * mvolt
+        self.v_thr = -50.4 * mvolt
+        self.tao_m = 9.37 * msec
+        self.c_m = 281.0 * pfarad
+
+        # synaptic current parameters
+        self.gbar_e = 100.0 * nsiem
+        self.gbar_i = 100.0 * nsiem
+        self.vrev_e = 0.0 * mvolt
+        self.vrev_i = -75.0 * mvolt
+
+
 class SynapseParams:
     def __init__(self):
         self.tao_syn = 5.0 * msec  # this probably needs to be 10 msec

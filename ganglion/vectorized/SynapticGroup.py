@@ -1,6 +1,6 @@
 from numba import jit, prange
 import numpy as np
-from NeuralGroup import AdExNeuralGroup
+from NeuralGroup import NeuralGroup
 from parameters import SynapseParams, STDPParams
 import multiprocessing as mp
 
@@ -48,7 +48,7 @@ class SynapticGroup:
     """
     Defines a groups of synapses connecting two groups of neurons
     """
-    def __init__(self, pre_n: AdExNeuralGroup, post_n: AdExNeuralGroup, tki, initial_w: float=None, w_rand_min: float=0.0, w_rand_max: float=1.0, trainable: bool=True, syn_params: SynapseParams=None, stdp_params: STDPParams=None, weight_multiplier=None):
+    def __init__(self, pre_n: NeuralGroup, post_n: NeuralGroup, tki, initial_w: float=None, w_rand_min: float=0.0, w_rand_max: float=1.0, trainable: bool=True, syn_params: SynapseParams=None, stdp_params: STDPParams=None, weight_multiplier=None):
         self.synp = SynapseParams() if syn_params is None else syn_params  # synapse parameters are default if None is given
         self.stdpp = STDPParams() if stdp_params is None else stdp_params  # STDP parameters are default if None is given
         self.tki = tki  # reference to timekeeper object that is shared amongst the entire network
@@ -224,11 +224,11 @@ class SynapticGroup:
         v_rev_pre.T[:] = self.pre_n.v_rev
         gbar_pre.T[:] = self.pre_n.gbar
     
-        # return np.sum(self.history * self.w * (v_m_post - v_rev_pre) * gbar_pre * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))  # this one is slow and works
+        return np.sum(self.history * self.w * (v_m_post - v_rev_pre) * gbar_pre * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))  # this one is slow and works
         # return isyn_jit_old(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.delta_t, self.synp.tao_syn) # this one is faster and works
         # return isyn_jit(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix) # this one is even faster and works
 
         # this is the fastest, and works
-        return np.sum(isyn_jit_full_parallel(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix, self.weight_multiplier, self.alpha_time))
+        # return np.sum(isyn_jit_full_parallel(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix, self.weight_multiplier, self.alpha_time))
 
         
