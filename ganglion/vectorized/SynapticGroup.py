@@ -18,21 +18,21 @@ def fast_row_roll(val, assignment):
 
 @jit(nopython=True)#, parallel=True, nogil=True)
 def isyn_jit_old(history, w, v_m_post, v_rev_pre, gbar_pre, delta_t, tao_syn):
-    return np.sum(history * w * (v_m_post - v_rev_pre) * gbar_pre * np.exp(-1.0 * delta_t / tao_syn))
+    return np.sum(history * w * (v_rev_pre - v_m_post) * gbar_pre * np.exp(-1.0 * delta_t / tao_syn))
 
 @jit(nopython=True)
 def isyn_jit(history, w, v_m_post, v_rev_pre, gbar_pre, decayed_time):
     """
     Calculate synaptic current, JIT compiled for faster processing
     """
-    return np.sum(history * w * (v_m_post - v_rev_pre) * gbar_pre * decayed_time)
+    return np.sum(history * w * (v_rev_pre - v_m_post) * gbar_pre * decayed_time)
 
 @jit(nopython=True, parallel=True, nogil=True, fastmath=True)
 def isyn_jit_parallel(history, w, v_m_post, v_rev_pre, gbar_pre, decayed_time, weight_multiplier, alpha_time):
     """
     Calculate synaptic current, JIT compiled for faster processing
     """
-    return history * w * alpha_time * (v_m_post - v_rev_pre) * gbar_pre * decayed_time * weight_multiplier
+    return history * w * alpha_time * (v_rev_pre - v_m_post) * gbar_pre * decayed_time * weight_multiplier
 
 @jit(nopython=True, parallel=True, nogil=True)
 def isyn_jit_full_parallel(history, w, v_m_post, v_rev_pre, gbar_pre, decayed_time, weight_multiplier, alpha_time):
@@ -224,12 +224,11 @@ class SynapticGroup:
         v_rev_pre.T[:] = self.pre_n.v_rev
         gbar_pre.T[:] = self.pre_n.gbar
     
-        # return np.sum(self.history * self.w * (v_m_post - v_rev_pre) * gbar_pre * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))  # this one is slow and works
-        return np.sum(self.history * self.w * (v_rev_pre - v_m_post) * gbar_pre * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))  # this one is slow and works
+        # return np.sum(self.history * self.w * (v_rev_pre - v_m_post) * gbar_pre * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))  # this one is slow and works
         # return isyn_jit_old(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.delta_t, self.synp.tao_syn) # this one is faster and works
         # return isyn_jit(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix) # this one is even faster and works
 
         # this is the fastest, and works
-        # return np.sum(isyn_jit_full_parallel(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix, self.weight_multiplier, self.alpha_time))
+        return np.sum(isyn_jit_full_parallel(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix, self.weight_multiplier, self.alpha_time))
 
         
