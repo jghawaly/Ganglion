@@ -1,3 +1,6 @@
+import sys
+sys.path.append("../vectorized")
+
 from timekeeper import TimeKeeperIterator
 from NeuralGroup import SensoryNeuralGroup, LIFNeuralGroup
 from NeuralNetwork import NeuralNetwork
@@ -12,7 +15,7 @@ import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     mode = "single_neuron"
-    # mode = "single_network"
+    mode = "single_network"
     # single neuron simulation
     if mode == "single_neuron":
         tki = TimeKeeperIterator(timeunit=0.1*msec)
@@ -23,7 +26,7 @@ if __name__ == "__main__":
         for step in tki:
             if tki.tick_time() <= 500*msec:
                 # constant current input
-                n.run(-1.0 * namp)
+                n.run(1.0 * namp)
             else:
                 n.run(0.0 * namp)
             sys.stdout.write("Current simulation time: %g milliseconds\r" % (step * tki.dt() / msec))
@@ -88,4 +91,3 @@ if __name__ == "__main__":
         plt.xlabel("Time (msec)")
         plt.ylabel("Synaptic Current (amp)")
         plt.show()
-

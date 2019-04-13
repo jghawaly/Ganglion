@@ -224,7 +224,8 @@ class SynapticGroup:
         v_rev_pre.T[:] = self.pre_n.v_rev
         gbar_pre.T[:] = self.pre_n.gbar
     
-        return np.sum(self.history * self.w * (v_m_post - v_rev_pre) * gbar_pre * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))  # this one is slow and works
+        # return np.sum(self.history * self.w * (v_m_post - v_rev_pre) * gbar_pre * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))  # this one is slow and works
+        return np.sum(self.history * self.w * (v_rev_pre - v_m_post) * gbar_pre * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))  # this one is slow and works
         # return isyn_jit_old(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.delta_t, self.synp.tao_syn) # this one is faster and works
         # return isyn_jit(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix) # this one is even faster and works
 
