@@ -230,5 +230,3 @@ class SynapticGroup:
 
         # this is the fastest, and works
         return np.sum(isyn_jit_full_parallel(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix, self.weight_multiplier, self.alpha_time))
-
-        

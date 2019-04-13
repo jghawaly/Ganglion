@@ -26,7 +26,7 @@ class ExLIFParams(LIFParams):
         super().__init__()
         self.sf = 2.0 * mvolt
         self.v_rheobase = -50.4 * mvolt
-        self.v_thr = 20.0 * mvolt
+        self.v_thr = -50.4 * mvolt
 
 
 class AdExParams(ExLIFParams):

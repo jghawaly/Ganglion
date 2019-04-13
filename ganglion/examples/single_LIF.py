@@ -9,7 +9,6 @@ from units import *
 from utils import poisson_train
 import numpy as np
 import time
-import sys
 import matplotlib.pyplot as plt
 
 

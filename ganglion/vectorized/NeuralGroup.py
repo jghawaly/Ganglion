@@ -89,13 +89,13 @@ class SensoryNeuralGroup(NeuralGroup):
 
         return output
 
+
 class LIFNeuralGroup(NeuralGroup):
     """
     This class defines a group of Leaky Integrate and Fire Neurons
     """
     def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: LIFParams, field_shape=None):
         super().__init__(n_type, name, tki, field_shape=field_shape)
-
         # custom parameters
         self.refractory_period = np.full(self.shape, params.refractory_period)  # refractory period for these neurons
         self.spiked = np.zeros(self.shape, dtype=np.int)  # holds boolean array of WHETHER OR NOT a spike occured in the last call to run() (Note: NOT THE LAST TIME STEP)
@@ -107,6 +107,8 @@ class LIFNeuralGroup(NeuralGroup):
         self.v_rev = np.zeros(n_type.shape, dtype=np.float)  # reversal potential for any outgoing synapses from these neurons
         self.v_rev[np.where(self.n_type==0)] = params.vrev_i
         self.v_rev[np.where(self.n_type==1)] = params.vrev_e
+        self.vrev_i = np.full(self.shape, params.vrev_i)
+        self.vrev_e = np.full(self.shape, params.vrev_e)
 
         # construct gbar matrix
         self.gbar = np.zeros(n_type.shape, dtype=np.float)  # conductance of any outgoing synapses from these neurons
@@ -166,6 +168,13 @@ class LIFNeuralGroup(NeuralGroup):
         self.last_spike_count_update = self.tki.tick_time()
         # modify the last-spike-time for each neuron that fired
         self.last_spike_time[self.spiked] = self.tki.tick_time()
+
+        # If a substantial synaptic inhibitory current is supplied, the timestep used in the Euler's method may not be sufficient to for estimating the amount of
+        # synaptic current coming in on the neurons, this can cause the neuron's membrane potential to pull way below the inhibitory reversal potential.
+        # To try and "patch" this, we force the neurons that went too low to the reversal potential, which is the theoretical minimum membrane potential that the
+        # neuron can have
+        hp = np.where(self.v_m < self.vrev_i)
+        self.v_m[hp] =self.vrev_i[hp]
 
         # this is a copy of the membrane potential matrix
         output = self.v_m.copy()
@@ -227,6 +236,13 @@ class ExLIFNeuralGroup(LIFNeuralGroup):
         # modify the last-spike-time for each neuron that fired
         self.last_spike_time[self.spiked] = self.tki.tick_time()
 
+        # If a substantial synaptic inhibitory current is supplied, the timestep used in the Euler's method may not be sufficient to for estimating the amount of
+        # synaptic current coming in on the neurons, this can cause the neuron's membrane potential to pull way below the inhibitory reversal potential.
+        # To try and "patch" this, we force the neurons that went too low to the reversal potential, which is the theoretical minimum membrane potential that the
+        # neuron can have
+        hp = np.where(self.v_m < self.vrev_i)
+        self.v_m[hp] =self.vrev_i[hp]
+
         # this is a copy of the membrane potential matrix
         output = self.v_m.copy()
 
@@ -250,7 +266,8 @@ class ExLIFNeuralGroup(LIFNeuralGroup):
 
 class AdExNeuralGroup(ExLIFNeuralGroup):
     """
-    This class defines a group of Adaptive Exponential Integrate and Fire Neurons, as described by Brette and Gerstner (2005)
+    This class defines a group of Adaptive Exponential Integrate and Fire Neurons, as described by Brette and Gerstner (2005). 
+    NOTE: This model has problems and should not be used for practical networks
     """
     def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: AdExParams, field_shape=None):
         super().__init__(n_type, name, tki, params=params, field_shape=field_shape)

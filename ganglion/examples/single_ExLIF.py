@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     mode = "single_neuron"
-    # mode = "single_network"
+    mode = "single_network"
     # single neuron simulation
     if mode == "single_neuron":
         tki = TimeKeeperIterator(timeunit=0.1*msec)
@@ -28,7 +28,7 @@ if __name__ == "__main__":
                 n.run(1.0 * namp)
             else:
                 n.run(0.0 * namp)
-            sys.stdout.write("Current simulation time: %g milliseconds\r" % (step * tki.dt() / msec))
+            sys.stdout.write("Current simulation time: %g milliseconds       \r" % (step * tki.dt() / msec))
 
             if step >= duration/tki.dt():
                 break
@@ -53,23 +53,27 @@ if __name__ == "__main__":
     if mode == "single_network":
         start = time.time()
         tki = TimeKeeperIterator(timeunit=0.1*msec)
-        duration = 1000.0 * msec
+        duration = 500.0 * msec
         g1 = SensoryNeuralGroup(np.ones(2, dtype=np.int), "Luny", tki, ExLIFParams())
-        g2 = ExLIFNeuralGroup(np.ones(3, dtype=np.int), "George", tki, ExLIFParams())
+        g2 = ExLIFNeuralGroup(np.array([1, 1], dtype=np.int), "George", tki, ExLIFParams())
+        g2i = ExLIFNeuralGroup(np.array([0, 0], dtype=np.int), "Georgi", tki, ExLIFParams())
         g3 = ExLIFNeuralGroup(np.ones(2, dtype=np.int), "Ada", tki, ExLIFParams())
         g3.tracked_vars = ["v_m", "i_syn"]
 
-        nn = NeuralNetwork([g1, g2, g3], "blah", tki)
+        nn = NeuralNetwork([g1, g2, g2i, g3], "blah", tki)
         nn.fully_connect("Luny", "George", w_i=1.0, trainable=True)
+        nn.fully_connect("Luny", "Georgi", w_i=1.0, trainable=True)
         nn.fully_connect("George", "Ada", w_i=1.0, trainable=True)
+        nn.fully_connect("Georgi", "Ada", w_i=1.0, trainable=True)
+        nn.fully_connect("Georgi", "George", w_i=1.0, trainable=True)
         
         for step in tki:
             # inject spikes into sensory layer
-            g1.run(poisson_train(np.array([0.0, 1.0]), tki.dt(), 64))
+            g1.run(poisson_train(np.array([1.0, 1.0]), tki.dt(), 64))
             # run all layers
-            nn.run_order(["Luny", "George", "Ada"])
+            nn.run_order(["Luny", "George" ,"Georgi", "Ada"])
             
-            sys.stdout.write("Current simulation time: %g milliseconds\r" % (step * tki.dt() / msec))
+            sys.stdout.write("Current simulation time: %g milliseconds       \r" % (step * tki.dt() / msec))
 
             if step >= duration/tki.dt():
                 break
@@ -77,7 +81,7 @@ if __name__ == "__main__":
         v = [i[0] for i in g3.v_m_track] 
         isyn = [i[0] for i in g3.isyn_track] 
 
-        times = np.arange(0,len(v), 1) * tki.dt() / msec
+        times = np.arange(0, len(v), 1) * tki.dt() / msec
 
         plt.plot(times, v)
         plt.title("Voltage Track")
