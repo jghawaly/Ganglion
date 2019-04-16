@@ -184,7 +184,7 @@ class NeuralNetwork:
                         # s2.roll_history_and_assign(g.spike_count) 
                         s2.pre_fire_notify(g.spike_count)
             else:
-                i = np.zeros(g.shape, dtype=np.float)
+                i = 0#np.zeros(g.shape, dtype=np.float)
                 # calculate total input current
                 for s in self.synapses:
                     # if this synapse group is presynaptic, then calculate the current coming across it and run that current through the current neural group

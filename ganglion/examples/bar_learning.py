@@ -38,17 +38,28 @@ if __name__ == "__main__":
     start = time.time()
     tki = TimeKeeperIterator(timeunit=0.5*msec)
     duration = 200000.0 * msec
-    g1 = SensoryNeuralGroup(np.ones(64, dtype=np.int), "inputs", tki, ExLIFParams(), field_shape=(8, 8))
-    g2 = ExLIFNeuralGroup(np.ones(32, dtype=np.int), "exc", tki, ExLIFParams(), field_shape=(4,8))
-    g3 = ExLIFNeuralGroup(np.zeros(32, dtype=np.int), "inh_lateral", tki, ExLIFParams(), field_shape=(4,8))
+
+    inhib_layer_params = ExLIFParams()
+    inhib_layer_params.gbar_i = 55.0 * nsiem
+    inhib_layer_params.tao_m = 50 * msec
+
+    exc_layer_params = ExLIFParams()
+    exc_layer_params.gbar_e = 55.0 * nsiem
+    exc_layer_params.tao_m = 100 * msec
+
+    g1 = SensoryNeuralGroup(np.ones(64, dtype=np.int), "inputs", tki, exc_layer_params, field_shape=(8, 8))
+    g2 = ExLIFNeuralGroup(np.ones(16, dtype=np.int), "exc", tki, exc_layer_params, field_shape=(4,4))
+    g3 = ExLIFNeuralGroup(np.zeros(16, dtype=np.int), "inh_lateral", tki, inhib_layer_params, field_shape=(4,4))
     # g3.tracked_vars = ["v_m"]
 
     nn = NeuralNetwork([g1, g2, g3], "bar_learner", tki)
     lp = STDPParams()
-    lp.lr = 0.0001
-    nn.fully_connect("inputs", "exc", trainable=True, stdp_params=lp, minw=0.01, maxw=0.4)
+    lp.lr = 0.005
+    lp.a2_minus = 8.0e-3
+    lp.a3_minus = 3e-4
+    nn.fully_connect("inputs", "exc", trainable=True, stdp_params=lp, minw=0.05, maxw=0.5)
     nn.one_to_one_connect("exc", "inh_lateral", w_i=1.0, trainable=False)
-    nn.fully_connect("inh_lateral", "exc", w_i=0.1, trainable=False, skip_one_to_one=True)
+    nn.fully_connect("inh_lateral", "exc", w_i=1.0, trainable=False, skip_one_to_one=True)
 
     vms = []
 
@@ -78,7 +89,7 @@ if __name__ == "__main__":
     lts = 0
     skip = False
     for step in tki:
-        if (step - lts)*tki.dt() >= 50*msec:
+        if (step - lts)*tki.dt() >= 200*msec:
             lts = step
             d = genbar(8, 8)
             skip = not skip
@@ -87,7 +98,7 @@ if __name__ == "__main__":
             g1.run(np.zeros(g1.field_shape, dtype=np.int))
         else:
             # inject spikes into sensory layer
-            g1.run(poisson_train(d, tki.dt(), 200))
+            g1.run(poisson_train(d, tki.dt(), 76))
         # run all layers
         nn.run_order(["inputs", "exc", "inh_lateral"])
         
@@ -118,7 +129,7 @@ if __name__ == "__main__":
             img = np.vstack((img, row_img))
 
     plt.imshow(img)
-    plt.title("Pre-training weight matrix")
+    plt.title("Post-training weight matrix")
     plt.colorbar()
     plt.clim(0, 1)
     plt.show()

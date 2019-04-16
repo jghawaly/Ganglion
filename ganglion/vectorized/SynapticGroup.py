@@ -6,7 +6,7 @@ import multiprocessing as mp
 
 
 @jit(nopython=True, parallel=True, nogil=True)
-def fast_row_roll(val, assignment):
+def fast_row_rollOLD(val, assignment):
     """
     A JIT compiled method for roll the values of all rows in a givenm matrix down by one, and
     assigning the first row to the given assignment
@@ -15,7 +15,15 @@ def fast_row_roll(val, assignment):
     val[0] = assignment
     return val
 
-
+@jit(nopython=True, parallel=True, nogil=True)
+def fast_row_roll(val, assignment):
+    """
+    A JIT compiled method for roll the values of all rows in a givenm matrix down by one, and
+    assigning the first row to the given assignment
+    """
+    val[1:] = val[0:-1]
+    val[0] = assignment
+    return val
 @jit(nopython=True)#, parallel=True, nogil=True)
 def isyn_jit_old(history, w, v_m_post, v_rev_pre, gbar_pre, delta_t, tao_syn):
     return np.sum(history * w * (v_rev_pre - v_m_post) * gbar_pre * np.exp(-1.0 * delta_t / tao_syn))
@@ -72,11 +80,14 @@ class SynapticGroup:
         self.post_spikes = []
 
         self.num_histories = int(self.synp.spike_window / self.tki.dt())  # number of discretized time bins that we will keep track of presynaptic spikes in
-        self.history = np.zeros((self.num_histories, self.m, self.n), dtype=np.float)  # A num_histories * num_synapses matrix containing spike counts for each synapse, for each time evaluation step
-        self.delta_t = self.construct_dt_matrix()  # construct the elapsed time correlation for spike history matrix
+        # self.history = np.zeros((self.num_histories, self.m, self.n), dtype=np.float)  # A num_histories * num_synapses matrix containing spike counts for each synapse, for each time evaluation step OLD
+        self.history = np.zeros((self.num_histories, self.m), dtype=np.float)  # A num_histories * num_synapses matrix containing spike counts for each synapse, for each time evaluation step
+        # self.delta_t = self.construct_dt_matrix()  # construct the elapsed time correlation for spike history matrix
         self.last_history_update_time = -1.0  # this is the time at which the history array was last updated
-        self.time_decay_matrix = np.exp(-1.0 * self.delta_t / self.synp.tao_syn)  # this is the time decay matrix that is used for decaying the PSPs, precalculated for faster processing
-        self.alpha_time = self.delta_t / self.synp.tao_syn # this is for converting the exponential decay to an alpha function
+
+        # self.time_decay_matrix = np.exp(-1.0 * self.delta_t / self.synp.tao_syn)  # this is the time decay matrix that is used for decaying the PSPs, precalculated for faster processing
+        # self.alpha_time = self.delta_t / self.synp.tao_syn # this is for converting the exponential decay to an alpha function
+        self.p_term = self.precalculate_term()
 
         # stdp parameters
         self.stdp_r1 = np.zeros((self.m, self.n), dtype=np.float)
@@ -110,65 +121,61 @@ class SynapticGroup:
         times = np.arange(1, self.num_histories+1, 1) * self.tki.dt()
         for idx, val in np.ndenumerate(times):
             delta_t[idx, :] = val
-    
+
         return delta_t
+    
+    def precalculate_term(self):
+        delta_t = np.zeros(self.num_histories, dtype=float)
+        times = np.arange(1, self.num_histories+1, 1) * self.tki.dt()
+        for idx, val in np.ndenumerate(times):
+            delta_t[idx] = val
+
+        alpha_time = delta_t / self.synp.tao_syn * np.exp(-1.0 * delta_t / self.synp.tao_syn)
+
+        gbar_pre = np.zeros(self.m, dtype=np.float).transpose()
+        gbar_pre[:] = self.pre_n.gbar
+
+        return np.outer(gbar_pre.transpose(), alpha_time)
 
     def roll_history_and_assign(self, assignment):
         """
         Roll the spike history to timestamp t-1 and assign the latest incoming spikes
         """
-        if self.tki.tick_time() == self.last_history_update_time:
-            print(self.pre_n.name)
-            print(self.post_n.name)
-            raise RuntimeError("An attempt was made to modify the synaptic history matrix more than once in a single time step.")
+        # if self.tki.tick_time() == self.last_history_update_time:
+        #     print(self.pre_n.name)
+        #     print(self.post_n.name)
+        #     raise RuntimeError("An attempt was made to modify the synaptic history matrix more than once in a single time step.")
         
         self.history = fast_row_roll(self.history, assignment)  
         
         self.last_history_update_time = self.tki.tick_time()
-
+    
     def pre_fire_notify(self, fired_neurons):
         """
         Notify this synaptic group of pre-synaptic neuron spikes. This is used for both updating the spike
         history and running pre-spike online STDP training
         """
-        # we need to reshape this to the size of the weight matrix, so that we only update weights of synapses
-        # that connect to this particular neuron, and also so that we don't store spike histories of neurons
-        # that didn't spike
         f = np.where(fired_neurons>0.5)
-        a = np.zeros((self.m, self.n))
-        a[f, :] = fired_neurons[f, None]
-
-        # we don't want to update synapses with zero weight
-        mask = self.w.copy()
-        mask[np.where(self.w > 0.0)] = 1.0
 
         self.stdp_r1[f, :] += 1
         self.stdp_r2[f, :] += 1
         
-        self.roll_history_and_assign(a)
+        self.roll_history_and_assign(fired_neurons)
         if self.trainable:
-            self._stdp(a * mask, 'pre') 
+            self._stdp(fired_neurons, 'pre') 
 
     def post_fire_notify(self, fired_neurons):
         """
         Notify this synaptic group of post-synaptic neuron spikes. This is used for both updating the spike
         history and running post-spike online STDP training
         """
-        # we need to reshape this to the size of the weight matrix, so that we only update weights of synapses
-        # that connect to this particular neuron
         f = np.where(fired_neurons>0.5)
-        a = np.zeros((self.m, self.n))
-        a[:, f] = fired_neurons[f]
-
-        # we don't want to update synapses with zero weight
-        mask = self.w.copy()
-        mask[np.where(self.w > 0.0)] = 1.0
         
         self.stdp_o1[:, f] += 1
         self.stdp_o2[:, f] += 1
 
         if self.trainable:
-            self._stdp(a * mask, 'post')  
+            self._stdp(fired_neurons, 'post')  
 
     def _stdp(self, fired_neurons, fire_time):
         """
@@ -198,19 +205,22 @@ class SynapticGroup:
         
         # calculate new weights and stdp parameters based on firing locations
         if fire_time == 'pre':
-            self.stdp_r1[si] += 1.0
-            self.stdp_r2[si] += 1.0
-
-            dw = self.stdp_o1[si] * (self.stdpp.a2_minus + self.stdpp.a3_minus * self.last_stdp_r2[si])
+            # self.stdp_r1[si] += 1.0
+            # self.stdp_r2[si] += 1.0
+            self.stdp_r1[si,:] += 1.0
+            self.stdp_r2[si,:] += 1.0
+            dw = self.stdp_o1[si,:] * (self.stdpp.a2_minus + self.stdpp.a3_minus * self.last_stdp_r2[si,:])
             
-            self.w[si] = np.clip(self.w[si] - self.stdpp.lr * dw, 0.0, 1.0)
+            self.w[si,:] = np.clip(self.w[si,:] - self.stdpp.lr * dw, 0.0, 1.0)
         elif fire_time == 'post':
-            self.stdp_o1[si] += 1.0
-            self.stdp_o2[si] += 1.0
+            # self.stdp_o1[si] += 1.0
+            # self.stdp_o2[si] += 1.0
+            self.stdp_o1[:,si] += 1.0
+            self.stdp_o2[:,si] += 1.0
 
-            dw = self.stdp_r1[si] * (self.stdpp.a2_plus + self.stdpp.a3_plus * self.last_stdp_o2[si])
+            dw = self.stdp_r1[:,si] * (self.stdpp.a2_plus + self.stdpp.a3_plus * self.last_stdp_o2[:,si])
             
-            self.w[si] = np.clip(self.w[si] + self.stdpp.lr * dw, 0.0, 1.0)
+            self.w[:,si] = np.clip(self.w[:,si] + self.stdpp.lr * dw, 0.0, 1.0)
 
     def calc_isyn(self):
         """
@@ -218,15 +228,19 @@ class SynapticGroup:
         """
         v_m_post = np.zeros((self.m, self.n), dtype=np.float)
         v_rev_pre = np.zeros((self.m, self.n), dtype=np.float)
-        gbar_pre = np.zeros((self.m, self.n), dtype=np.float)
 
         v_m_post[:] = self.post_n.v_m
         v_rev_pre.T[:] = self.pre_n.v_rev
-        gbar_pre.T[:] = self.pre_n.gbar
-    
-        # return np.sum(self.history * self.w * (v_rev_pre - v_m_post) * gbar_pre * np.exp(-1.0 * self.delta_t / self.synp.tao_syn))  # this one is slow and works
-        # return isyn_jit_old(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.delta_t, self.synp.tao_syn) # this one is faster and works
-        # return isyn_jit(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix) # this one is even faster and works
+        v_term = v_rev_pre-v_m_post
 
+        i_syn = np.zeros(self.n, dtype=np.float)
+        for k in range(self.num_histories):
+            hist_k = self.history[k]
+            p_term_k = self.p_term[:, k][np.newaxis].transpose()
+            i_current = np.dot(hist_k, self.w*p_term_k*v_term)
+            i_syn += i_current
+        
+        return i_syn
+        # return np.sum(np.dot(self.history* self.time_decay_matrix, self.w * (v_rev_pre - v_m_post) * gbar_pre))
         # this is the fastest, and works
-        return np.sum(isyn_jit_full_parallel(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix, self.weight_multiplier, self.alpha_time))
+        # return np.sum(isyn_jit_full_parallel(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix, self.weight_multiplier, self.alpha_time))
