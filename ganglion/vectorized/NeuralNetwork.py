@@ -91,8 +91,14 @@ class NeuralNetwork:
         patch_cols = patch.shape[1]
 
         # calculate number of strides that will be performed
-        num_strides_col = (a_cols - patch_cols) / cstride + 1
-        num_strides_row = (a_rows - patch_rows) / rstride + 1
+        try:
+            num_strides_col = (a_cols - patch_cols) / cstride + 1
+        except ZeroDivisionError:
+            num_strides_col = 1.0
+        try:
+            num_strides_row = (a_rows - patch_rows) / rstride + 1
+        except ZeroDivisionError:
+            num_strides_row = 1.0
 
         # check if given parameters are valid
         if a_rows < b_rows:

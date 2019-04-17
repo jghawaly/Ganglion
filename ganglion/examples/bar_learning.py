@@ -37,10 +37,10 @@ def genbars(s1, s2):
 if __name__ == "__main__":
     start = time.time()
     tki = TimeKeeperIterator(timeunit=0.5*msec)
-    duration = 200000.0 * msec
+    duration = 300000.0 * msec
 
     inhib_layer_params = ExLIFParams()
-    inhib_layer_params.gbar_i = 55.0 * nsiem
+    inhib_layer_params.gbar_i = 65.0 * nsiem
     inhib_layer_params.tao_m = 50 * msec
 
     exc_layer_params = ExLIFParams()

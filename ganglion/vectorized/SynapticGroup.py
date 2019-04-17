@@ -6,16 +6,6 @@ import multiprocessing as mp
 
 
 @jit(nopython=True, parallel=True, nogil=True)
-def fast_row_rollOLD(val, assignment):
-    """
-    A JIT compiled method for roll the values of all rows in a givenm matrix down by one, and
-    assigning the first row to the given assignment
-    """
-    val[1:,:] = val[0:-1,:]
-    val[0] = assignment
-    return val
-
-@jit(nopython=True, parallel=True, nogil=True)
 def fast_row_roll(val, assignment):
     """
     A JIT compiled method for roll the values of all rows in a givenm matrix down by one, and
@@ -24,33 +14,7 @@ def fast_row_roll(val, assignment):
     val[1:] = val[0:-1]
     val[0] = assignment
     return val
-@jit(nopython=True)#, parallel=True, nogil=True)
-def isyn_jit_old(history, w, v_m_post, v_rev_pre, gbar_pre, delta_t, tao_syn):
-    return np.sum(history * w * (v_rev_pre - v_m_post) * gbar_pre * np.exp(-1.0 * delta_t / tao_syn))
 
-@jit(nopython=True)
-def isyn_jit(history, w, v_m_post, v_rev_pre, gbar_pre, decayed_time):
-    """
-    Calculate synaptic current, JIT compiled for faster processing
-    """
-    return np.sum(history * w * (v_rev_pre - v_m_post) * gbar_pre * decayed_time)
-
-@jit(nopython=True, parallel=True, nogil=True, fastmath=True)
-def isyn_jit_parallel(history, w, v_m_post, v_rev_pre, gbar_pre, decayed_time, weight_multiplier, alpha_time):
-    """
-    Calculate synaptic current, JIT compiled for faster processing
-    """
-    return history * w * alpha_time * (v_rev_pre - v_m_post) * gbar_pre * decayed_time * weight_multiplier
-
-@jit(nopython=True, parallel=True, nogil=True)
-def isyn_jit_full_parallel(history, w, v_m_post, v_rev_pre, gbar_pre, decayed_time, weight_multiplier, alpha_time):
-    """
-    Run the isyn calculation for all timesteps in the history array and return the resulting array
-    """
-    res = np.zeros_like(history)
-    for i in prange(history.shape[0]):
-        res[i] = isyn_jit_parallel(history[i], w, v_m_post, v_rev_pre, gbar_pre, decayed_time[i], weight_multiplier, alpha_time[i])
-    return res
 
 class SynapticGroup:
     """
@@ -241,6 +205,48 @@ class SynapticGroup:
             i_syn += i_current
         
         return i_syn
-        # return np.sum(np.dot(self.history* self.time_decay_matrix, self.w * (v_rev_pre - v_m_post) * gbar_pre))
-        # this is the fastest, and works
-        # return np.sum(isyn_jit_full_parallel(self.history, self.w, v_m_post, v_rev_pre, gbar_pre, self.time_decay_matrix, self.weight_multiplier, self.alpha_time))
+        # return isyn_parallel(self.n, self.num_histories, self.history, self.w, v_term, self.p_term)
+
+
+if __name__ == "__main__":
+    print()
+    print("Running Unit Test...")
+    print()
+    from NeuralGroup import ExLIFNeuralGroup, SensoryNeuralGroup
+    from NeuralNetwork import NeuralNetwork
+    from timekeeper import TimeKeeperIterator
+    from parameters import ExLIFParams
+    from units import *
+    import time
+
+
+    tki = TimeKeeperIterator(timeunit=0.01*msec)
+    duration = 5 * msec
+
+    g1 = SensoryNeuralGroup(np.ones(4, dtype=np.int), "input", tki, ExLIFParams())
+    g2 = ExLIFNeuralGroup(np.ones(4, dtype=np.int), "hidden", tki, ExLIFParams())
+    g3 = ExLIFNeuralGroup(np.ones(4, dtype=np.int), "output", tki, ExLIFParams())
+    g3.tracked_vars = ['i_syn']
+
+    nn = NeuralNetwork([g1, g2, g3], "network", tki)
+    
+    nn.fully_connect("input", "hidden", trainable=False, w_i=0.1)
+    nn.fully_connect("hidden", "output", trainable=False, w_i=0.1)
+    
+    start_time = time.time()
+    for step in tki:
+        g1.run(np.array([1,1,1,1]))
+
+        nn.run_order(["input", "hidden", "output"])
+
+        if step >= duration/tki.dt():
+            break
+    end_time = time.time()
+    tsc = np.sum(g3.isyn_track)
+
+    if 1.4e-6 > tsc > 1.3e-6:
+        test = "PASSED"
+    else:
+        test = "FAILED"
+    print("Unit Test  ::  %s  ::  Total synaptic current  ::  %g  ::  Expected synaptic current  ::  %s  ::  Execution Time  ::  %g seconds" % (test, np.sum(g3.isyn_track), "1.36319e-06", end_time-start_time))
+        

@@ -3,3 +3,5 @@
 /ganglion/blah*
 /ganglion/profiling*
 /ganglion/vectorized/__pycache__
+/MNIST_data
+/examples/MNIST_data
