@@ -104,14 +104,14 @@ if __name__ == "__main__":
     plt.show()
     
     tki = TimeKeeperIterator(timeunit=0.5*msec)
-    duration = 10000.0 * msec
+    duration = 20000.0 * msec
 
     inh_layer_params = ExLIFParams()
-    inh_layer_params.gbar_i = 50.0 * nsiem
+    inh_layer_params.gbar_i = 20.0 * nsiem
     inh_layer_params.tao_m = 50 * msec
 
     exc_layer_params = ExLIFParams()
-    exc_layer_params.gbar_e = 50.0 * nsiem
+    exc_layer_params.gbar_e = 10.0 * nsiem
     exc_layer_params.tao_m = 100 * msec
 
     g1_obstacles = SensoryNeuralGroup(np.ones(grid_size[0] * grid_size[1], dtype=np.int), "obstacle_inputs", tki, exc_layer_params, field_shape=grid_size)
@@ -123,8 +123,11 @@ if __name__ == "__main__":
 
     g3 = ExLIFNeuralGroup(np.ones(25, dtype=np.int), "al2", tki, exc_layer_params)
 
-    g4 = ExLIFNeuralGroup(np.ones(5, dtype=np.int), "go", tki, exc_layer_params)
-    g4i = ExLIFNeuralGroup(np.zeros(5, dtype=np.int), "nogo", tki, inh_layer_params)
+    go = ExLIFNeuralGroup(np.ones(5, dtype=np.int), "go", tki, exc_layer_params)
+    nogo = ExLIFNeuralGroup(np.zeros(5, dtype=np.int), "nogo", tki, inh_layer_params)
+
+    goi = ExLIFNeuralGroup(np.zeros(5, dtype=np.int), "goi", tki, inh_layer_params)
+    nogoi = ExLIFNeuralGroup(np.zeros(5, dtype=np.int), "nogoi", tki, inh_layer_params)
 
     g5 = ExLIFNeuralGroup(np.ones(5, dtype=np.int), "action", tki, exc_layer_params)
     g5i = ExLIFNeuralGroup(np.zeros(5, dtype=np.int), "actioni", tki, inh_layer_params)
@@ -132,9 +135,11 @@ if __name__ == "__main__":
     dopamine_surge = SensoryNeuralGroup(np.ones(1, dtype=np.int), "dopamine_surge", tki, exc_layer_params)
     dopamine_dip = SensoryNeuralGroup(np.ones(1, dtype=np.int), "dopamine_dip", tki, exc_layer_params)
 
+    hunger = SensoryNeuralGroup(np.ones(4, dtype=np.int), "hunger", tki, exc_layer_params)
+
     g5.tracked_vars = ["spike"]
 
-    nn = NeuralNetwork([g1_obstacles, g1_meal, g1_agent, g2, g2i, g3, g4, g4i, g5, g5i, dopamine_dip, dopamine_surge], "dopamine dingo", tki)
+    nn = NeuralNetwork([g1_obstacles, g1_meal, g1_agent, g2, g2i, g3, go, nogo, goi, nogoi, g5, g5i, dopamine_dip, dopamine_surge, hunger], "dopamine dingo", tki)
 
     lp = STDPParams()
     lp.lr = 0.005
@@ -142,34 +147,45 @@ if __name__ == "__main__":
     lp.a3_minus = 3e-4
 
     patch1 = np.ones((3,3))
-    nn.convolve_connect("obstacle_inputs", "al1", patch1, 0, 1, trainable=True, stdp_params=lp, minw=0.05, maxw=0.9)
-    nn.convolve_connect("meal_inputs", "al1", patch1, 0, 1, trainable=True, stdp_params=lp, minw=0.05, maxw=0.9)
-    nn.convolve_connect("agent_inputs", "al1", patch1, 0, 1, trainable=True, stdp_params=lp, minw=0.05, maxw=0.9)
+    # nn.convolve_connect("obstacle_inputs", "al1", patch1, 0, 1, trainable=True, stdp_params=lp, minw=0.05, maxw=0.9)
+    # nn.convolve_connect("meal_inputs", "al1", patch1, 0, 1, trainable=True, stdp_params=lp, minw=0.05, maxw=0.9)
+    # nn.convolve_connect("agent_inputs", "al1", patch1, 0, 1, trainable=True, stdp_params=lp, minw=0.05, maxw=0.9)
+
+    nn.fully_connect("obstacle_inputs", "al1", trainable=True, stdp_params=lp, minw=0.05, maxw=0.2)
+    nn.fully_connect("meal_inputs", "al1", trainable=True, stdp_params=lp, minw=0.05, maxw=0.2)
+    nn.fully_connect("agent_inputs", "al1", trainable=True, stdp_params=lp, minw=0.05, maxw=0.9)
 
     nn.one_to_one_connect("al1", "al1i", trainable=False, w_i=1.0)
     nn.fully_connect("al1i", "al1", trainable=False, skip_one_to_one=True, w_i=1.0)
 
-    nn.fully_connect("al1", "al2", trainable=True, stdp_params=lp, minw=0.05, maxw=0.9)
+    nn.fully_connect("al1", "al2", trainable=True, stdp_params=lp, minw=0.05, maxw=0.2)
 
-    nn.fully_connect("al2", "go", trainable=True, stdp_params=lp, minw=0.05, maxw=0.9)
-    nn.fully_connect("al2", "nogo", trainable=True, stdp_params=lp, minw=0.05, maxw=0.9)
+    nn.fully_connect("al2", "go", trainable=True, stdp_params=lp, minw=0.05, maxw=0.2)
+    nn.fully_connect("al2", "nogo", trainable=True, stdp_params=lp, minw=0.05, maxw=0.2)
 
-    nn.fully_connect("go", "action", trainable=True, stdp_params=lp, minw=0.05, maxw=0.9)
-    nn.fully_connect("nogo", "action", trainable=True, stdp_params=lp, minw=0.05, maxw=0.9)
+    nn.fully_connect("go", "action", trainable=True, stdp_params=lp, minw=0.05, maxw=0.2)
+    nn.fully_connect("nogo", "action", trainable=True, stdp_params=lp, minw=0.05, maxw=0.2)
+
+    nn.one_to_one_connect("go", "goi", trainable=False, w_i=1.0)
+    nn.fully_connect("goi", "go", trainable=False, w_i=0.0)
+
+    nn.one_to_one_connect("nogo", "nogoi", trainable=False, w_i=1.0)
+    nn.fully_connect("nogoi", "nogo", trainable=False, w_i=0.0)
 
     nn.one_to_one_connect("action", "actioni", trainable=False, w_i=1.0)
     nn.fully_connect("actioni", "action", trainable=False, w_i=0.0)
 
     nn.fully_connect("dopamine_surge", "go", trainable=False, w_i=1.0)
     nn.fully_connect("dopamine_dip", "nogo", trainable=False, w_i=1.0)
-    nn.fully_connect("dopamine_surge", "al1", trainable=False, w_i=1.0)
-    nn.fully_connect("dopamine_dip", "al1i", trainable=False, w_i=1.0)
+    nn.fully_connect("hunger", "go", trainable=False, w_i=1.0)
+    # nn.fully_connect("dopamine_surge", "al1", trainable=False, w_i=1.0)
+    # nn.fully_connect("dopamine_dip", "al1i", trainable=False, w_i=1.0)
 
     lts = 0
     reward_type = 0
     for step in tki:
         if (step - lts)*tki.dt() >= 50*msec:
-            if tki.tick_time() < 5000*msec:
+            if tki.tick_time() < 10000*msec:
                 reward_type,change = my_grid.move_agent(nprand.randint(0, 5))
                 print()
                 print("exploration move")
@@ -199,20 +215,21 @@ if __name__ == "__main__":
         # reward the network for 5 milliseconds 
         if (step - lts)*tki.dt() >= 5*msec:
             if reward_type == -1:
-                dopamine_dip.run(poisson_train(np.ones(1, dtype=np.float), tki.dt(), 0))
-                dopamine_surge.run(poisson_train(np.zeros(1, dtype=np.float), tki.dt(), 0))
+                dopamine_dip.run(poisson_train(np.ones(1, dtype=np.float), tki.dt(), 100))
+                dopamine_surge.run(poisson_train(np.zeros(1, dtype=np.float), tki.dt(), 100))
+                hunger.run(poisson_train(nprand.random(4), tki.dt(), 100))
             if reward_type == 1:
-                dopamine_dip.run(poisson_train(np.zeros(1, dtype=np.float), tki.dt(),0))
-                dopamine_surge.run(poisson_train(np.ones(1, dtype=np.float), tki.dt(), 0))
+                dopamine_dip.run(poisson_train(np.zeros(1, dtype=np.float), tki.dt(), 100))
+                dopamine_surge.run(poisson_train(np.ones(1, dtype=np.float), tki.dt(), 100))
         else:
             o, p, m = my_grid.get_state()
 
-            g1_obstacles.run(poisson_train(o, tki.dt(), 74))
-            g1_meal.run(poisson_train(m, tki.dt(), 74))
-            g1_agent.run(poisson_train(p, tki.dt(), 74))
+            g1_obstacles.run(poisson_train(o, tki.dt(), 350))
+            g1_meal.run(poisson_train(m, tki.dt(), 350))
+            g1_agent.run(poisson_train(p, tki.dt(), 350))
         
         # run all layers
-        nn.run_order(["obstacle_inputs", "meal_inputs", "agent_inputs", "al1", "al1i", "al2", "dopamine_surge", "dopamine_dip", "go", "nogo", "action", "actioni"])
+        nn.run_order(["hunger", "obstacle_inputs", "meal_inputs", "agent_inputs", "al1", "al1i", "al2", "dopamine_surge", "dopamine_dip", "go", "nogo", "goi", "nogoi", "action", "actioni"])
         
         sys.stdout.write("Current simulation time: %g milliseconds\r" % (step * tki.dt() / msec))
 
