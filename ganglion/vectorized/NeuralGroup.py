@@ -1,7 +1,8 @@
 import numpy as np
 from timekeeper import TimeKeeperIterator
-from parameters import AdExParams, LIFParams, ExLIFParams
+from parameters import AdExParams, LIFParams, ExLIFParams, FTLIFParams
 from numba import njit
+
 
 class NeuralGroup:
     """
@@ -263,6 +264,86 @@ class ExLIFNeuralGroup(LIFNeuralGroup):
 
         return output
 
+
+class FTLIFNeuralGroup(LIFNeuralGroup):
+    """
+    This class defines a group of Leaky Integrate and Fire Neurons
+    """
+    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: FTLIFParams, field_shape=None):
+        super().__init__(n_type, name, tki, params=params, field_shape=field_shape)
+
+        # custom parameters
+        self.tao_ft = params.tao_ft  # time constant of floating threshold decay
+        self.ft_add = params.ft_add  # amount that the floating threshold increases by at each firing
+        self.ft = np.zeros(self.shape, dtype=np.float)  # floating threshold
+
+        # custom tracking parameters
+        self.ft_track = []
+    
+    def run(self, i_syn):
+        """
+        Update the state of the neurons
+        """
+        # if we are at a new time step since evaluating the neurons, then clear the spike count matrices
+        if self.last_spike_count_update != self.tki.tick_time():
+            # self.spike_count = np.zeros(self.shape, dtype=np.int)
+            self.spike_count.fill(0)
+        
+        self.spiked = np.zeros(self.shape, dtype=np.int)
+
+        # mask of neurons not in refractory period
+        refrac = self.not_in_refractory()
+
+        # calculate change in membrane potential for neurons not in refractory period
+        self.v_m += self.tki.dt() * (-1*(self.v_m - self.v_r) / self.tao_m + i_syn / self.c_m) * refrac
+
+        # calculate change in floating threshold
+        self.ft += -self.tki.dt() * self.ft / self.tao_ft
+
+        # find indices of neurons that have fired
+        self.spiked = np.where(self.v_m >= (self.v_thr + self.ft))
+
+        # add a new spike to the spike count for each neuron that fired
+        self.spike_count[self.spiked] += 1
+
+        # update the time at which the spike count array was modified
+        self.last_spike_count_update = self.tki.tick_time()
+
+        # modify the last-spike-time for each neuron that fired
+        self.last_spike_time[self.spiked] = self.tki.tick_time()
+
+        # update floating threshold for each neuron that fired
+        self.ft[self.spiked] += self.ft_add
+
+        # If a substantial synaptic inhibitory current is supplied, the timestep used in the Euler's method may not be sufficient to for estimating the amount of
+        # synaptic current coming in on the neurons, this can cause the neuron's membrane potential to pull way below the inhibitory reversal potential.
+        # To try and "patch" this, we force the neurons that went too low to the reversal potential, which is the theoretical minimum membrane potential that the
+        # neuron can have
+        hp = np.where(self.v_m < self.vrev_i)
+        self.v_m[hp] =self.vrev_i[hp]
+
+        # this is a copy of the membrane potential matrix
+        output = self.v_m.copy()
+
+        # change the output to the spike voltage for each neuron that fired. Note: this does not affect the actual v_m array, just a copy of it, because
+        # in this neuron model, the voltage of a spike does not really have any specific meaning, rather, it is the time of the spikes that matter
+        output[self.spiked] = self.v_spike[self.spiked]
+
+        # change the actual membrane voltage to the resting potential for each neuron that fired
+        self.v_m[self.spiked] = self.v_r[self.spiked]
+
+        # if we are tracking any variables, then append them to their respective lists, Note: This can use a lot of memory and cause slowdowns, so only do this when absolutely necessary
+        if "v_m" in self.tracked_vars:
+            self.v_m_track.append(output.copy())
+        if "i_syn" in self.tracked_vars:
+            self.isyn_track.append(i_syn)
+        if "spike" in self.tracked_vars:
+            self.spike_track.append(self.spike_count.copy())
+        if "ft" in self.tracked_vars:
+            self.ft_track.append(self.ft.copy())
+
+        return output
+    
 
 class AdExNeuralGroup(ExLIFNeuralGroup):
     """

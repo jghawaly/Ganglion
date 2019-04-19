@@ -171,11 +171,6 @@ class NeuralNetwork:
 
         for s in self.synapses:
             s.trainable = val
-        
-    def normalize_weights(self):
-        """Normalize the weights of every synaptic group such that the weight matrices each sum to 1"""
-        for s in self.synapses:
-            s.w = s.w/np.sum(s.w)
     
     def run_order(self, group_order):
         """Runs through each neuron group in the specified order, evaluating inputs received in the last dt time step

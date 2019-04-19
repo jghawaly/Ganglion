@@ -21,6 +21,13 @@ class LIFParams:
         self.vrev_i = -75.0 * mvolt
 
 
+class FTLIFParams(LIFParams):
+    def __init__(self):
+        super().__init__()
+        self.ft_add = 3.0 * mvolt
+        self.tao_ft = 244.0 * msec
+
+
 class ExLIFParams(LIFParams):
     def __init__(self):
         super().__init__()
@@ -47,6 +54,7 @@ class SynapseParams:
 
 class STDPParams:
     def __init__(self):
+        # triplet STDP settings
         self.lr = 0.0001
         self.a2_plus = 5.0e-10
         self.a3_plus = 6.2e-3
@@ -57,4 +65,13 @@ class STDPParams:
         self.tao_plus = 16.8 * msec
         self.tao_minus = 33.7 * msec
         self.eps = 0.33
+
+        # pair STDP settings
+        self.stdp_tao_pre = 2.0 * msec
+        self.stdp_tao_post = 4.0 * msec
+        self.lr_pre = 0.05
+        self.lr_post = 0.05
+
+        # common settings
         self.stdp_window = 20.0 * msec
+        
