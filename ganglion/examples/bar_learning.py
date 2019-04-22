@@ -55,10 +55,10 @@ def genbars(s1, s2):
 if __name__ == "__main__":
     start = time.time()
     tki = TimeKeeperIterator(timeunit=0.5*msec)
-    duration = 300000.0 * msec
+    duration = 100000.0 * msec
 
     inhib_layer_params = FTLIFParams()
-    inhib_layer_params.gbar_i = 300.0 * nsiem
+    inhib_layer_params.gbar_i = 10.0 * nsiem
     inhib_layer_params.tao_m = 50 * msec
 
     exc_layer_params = FTLIFParams()
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     lts = 0
     skip = False
     for step in tki:
-        if (step - lts)*tki.dt() >= 250*msec:
+        if (step - lts)*tki.dt() >= 100*msec:
             lts = step
             d = genbar(8, 8)
             skip = not skip
@@ -122,6 +122,7 @@ if __name__ == "__main__":
     plt.clim(0, 1)
     plt.show()
     # -------------------------------------------------------
+    
     # v = [i[0] for i in g2.spike_track] 
     # times = np.arange(0,len(v), 1) * tki.dt() / msec
 

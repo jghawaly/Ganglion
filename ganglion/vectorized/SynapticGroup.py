@@ -159,12 +159,12 @@ class SynapticGroup:
             # increment presynaptic trace
             self.stdp_pre[si,:] += 1.0
             # apply weight change
-            self.w[si,:] += -1.0 * self.stdpp.lr_pre * self.w[si,:] * self.stdp_post[si,:]
+            self.w[si,:] += self.stdpp.pre_multipler * self.stdpp.lr_pre * self.w[si,:] * self.stdp_post[si,:]
         elif fire_time == 'post':
             # increment postsynaptic trace
             self.stdp_post[:,si] += 1.0
             # apply weight change
-            self.w[:,si] += self.stdpp.lr_post * (1.0 - self.w[:,si]) * self.stdp_pre[:,si]
+            self.w[:,si] += self.stdpp.post_multiplier * self.stdpp.lr_post * (1.0 - self.w[:,si]) * self.stdp_pre[:,si]
 
     def _triplet_stdp(self, fired_neurons, fire_time):
         """
@@ -183,27 +183,17 @@ class SynapticGroup:
         self.stdp_o1 += -1.0 * self.tki.dt() * self.stdp_o1 / self.stdpp.tao_minus
         self.stdp_o2 += -1.0 * self.tki.dt() * self.stdp_o2 / self.stdpp.tao_y
 
-        # # roll and update the STDP spike traces based on the differentials just calculated
-        # self.stdp_r1 = dr1 + self.stdp_r1
-        # self.stdp_r2 = dr2 + self.stdp_r2
-        # self.stdp_o1 = do1 + self.stdp_o1
-        # self.stdp_o2 = do2 + self.stdp_o2
-
         # find the indices where there were spikes
         si = np.where(fired_neurons > 0)
         
         # calculate new weights and stdp parameters based on firing locations
         if fire_time == 'pre':
-            # self.stdp_r1[si] += 1.0
-            # self.stdp_r2[si] += 1.0
             self.stdp_r1[si,:] += 1.0
             self.stdp_r2[si,:] += 1.0
             dw = self.stdp_o1[si,:] * (self.stdpp.a2_minus + self.stdpp.a3_minus * self.last_stdp_r2[si,:])
             
             self.w[si,:] = np.clip(self.w[si,:] - self.stdpp.lr * dw, 0.0, 1.0)
         elif fire_time == 'post':
-            # self.stdp_o1[si] += 1.0
-            # self.stdp_o2[si] += 1.0
             self.stdp_o1[:,si] += 1.0
             self.stdp_o2[:,si] += 1.0
 

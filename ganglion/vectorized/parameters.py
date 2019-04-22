@@ -67,10 +67,12 @@ class STDPParams:
         self.eps = 0.33
 
         # pair STDP settings
-        self.stdp_tao_pre = 2.0 * msec
-        self.stdp_tao_post = 4.0 * msec
+        self.stdp_tao_pre = 1.0 * msec
+        self.stdp_tao_post = 1.0 * msec
         self.lr_pre = 0.05
         self.lr_post = 0.05
+        self.post_multiplier = 0.6
+        self.pre_multipler = -0.3
 
         # common settings
         self.stdp_window = 20.0 * msec
