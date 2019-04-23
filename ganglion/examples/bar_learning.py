@@ -54,15 +54,15 @@ def genbars(s1, s2):
 
 if __name__ == "__main__":
     start = time.time()
-    tki = TimeKeeperIterator(timeunit=0.5*msec)
+    tki = TimeKeeperIterator(timeunit=0.25*msec)
     duration = 100000.0 * msec
 
     inhib_layer_params = FTLIFParams()
-    inhib_layer_params.gbar_i = 10.0 * nsiem
+    inhib_layer_params.gbar_i = 40.0 * nsiem
     inhib_layer_params.tao_m = 50 * msec
 
     exc_layer_params = FTLIFParams()
-    exc_layer_params.gbar_e = 10.0 * nsiem
+    exc_layer_params.gbar_e = 20.0 * nsiem
     exc_layer_params.tao_m = 50 * msec
 
     g1 = SensoryNeuralGroup(np.ones(64, dtype=np.int), "inputs", tki, exc_layer_params, field_shape=(8, 8))
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     lts = 0
     skip = False
     for step in tki:
-        if (step - lts)*tki.dt() >= 100*msec:
+        if (step - lts)*tki.dt() >= 200*msec:
             lts = step
             d = genbar(8, 8)
             skip = not skip
