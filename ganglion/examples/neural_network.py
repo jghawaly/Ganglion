@@ -18,7 +18,7 @@ if __name__ == "__main__":
     parser.add_argument('model', type=str, help='the neuron model to evaluate')
     parser.add_argument('--duration', type=float, default=1000.0, help='duration of simulation (milliseconds)')
     parser.add_argument('--increment', type=float, default=0.1, help='time increment for numerical integration (milliseconds)')
-    parser.add_argument('--input_rate', type=float, default=64.0, help='firing rate of input sensory neurons (Hz)')
+    parser.add_argument('--input_rate', type=float, default=64.0, help='maximum firing rate of input sensory neurons (Hz)')
     parser.add_argument('--num_input_neurons', type=int, default=3, help='number of neurons in the input layer')
     parser.add_argument('--num_hidden_neurons', type=int, default=3, help='number of neurons in the hidden layer')
     parser.add_argument('--num_output_neurons', type=int, default=3, help='number of neurons in the output layer')
@@ -81,4 +81,3 @@ if __name__ == "__main__":
     plt.xlabel("Time (msec)")
     plt.ylabel("Synaptic Current (amp)")
     plt.show()
-
