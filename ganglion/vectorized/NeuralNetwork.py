@@ -26,7 +26,7 @@ class NeuralNetwork:
 
         raise ValueError("There is no NeuralGroup with the name %s in this NeuralNetwork." % tag)
 
-    def fully_connect(self, g1_tag, g2_tag, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9, skip_one_to_one=False):
+    def fully_connect(self, g1_tag, g2_tag, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9, skip_one_to_one=False, stdp_form='pair'):
         """
         Connect all of the neurons in g1 to every neuron in g2 with a given probability.
         if skip_one_to_one is set to True, then for each neuron, n1 in g1, connect n1 to each neuron, n2 in g2, 
@@ -43,12 +43,12 @@ class NeuralNetwork:
         if skip_one_to_one:
             np.fill_diagonal(wm, 0.0)
 
-        s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i)
+        s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, stdp_form=stdp_form)
 
         # store the new synaptic group into memory
         self.synapses.append(s)
     
-    def one_to_one_connect(self, g1_tag, g2_tag, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9):
+    def one_to_one_connect(self, g1_tag, g2_tag, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9, stdp_form='pair'):
         """
         Connect all of the neurons in g1 to the neurons in g2 at the same position as they are in g1.
         """
@@ -65,12 +65,12 @@ class NeuralNetwork:
         # one-to-one mapping
         np.fill_diagonal(wm, 1.0)
 
-        s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i)
+        s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, stdp_form=stdp_form)
 
         # store the new synaptic group into memory
         self.synapses.append(s)
     
-    def convolve_connect(self, g1_tag, g2_tag, patch, rstride, cstride, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9):
+    def convolve_connect(self, g1_tag, g2_tag, patch, rstride, cstride, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9, stdp_form='pair'):
         """
         Connect the first group to the second group in a convolutional/patched pattern. NOTE: Find a better way to
         describe this
@@ -133,7 +133,7 @@ class NeuralNetwork:
                 wm[a_mod, w_b_keys[r_s, c_s]] = 1.0
 
         # define the synaptic group
-        s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i)
+        s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, stdp_form=stdp_form)
         
         # store the new synaptic group into memory
         self.synapses.append(s)

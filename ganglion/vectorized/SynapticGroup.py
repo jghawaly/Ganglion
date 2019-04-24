@@ -3,7 +3,6 @@ import numpy as np
 from NeuralGroup import NeuralGroup
 from parameters import SynapseParams, STDPParams
 import multiprocessing as mp
-import torch
 
 
 @jit(nopython=True, parallel=True, nogil=True)
@@ -21,7 +20,7 @@ class SynapticGroup:
     """
     Defines a groups of synapses connecting two groups of neurons
     """
-    def __init__(self, pre_n: NeuralGroup, post_n: NeuralGroup, tki, initial_w: float=None, w_rand_min: float=0.0, w_rand_max: float=1.0, trainable: bool=True, syn_params: SynapseParams=None, stdp_params: STDPParams=None, weight_multiplier=None):
+    def __init__(self, pre_n: NeuralGroup, post_n: NeuralGroup, tki, initial_w: float=None, w_rand_min: float=0.0, w_rand_max: float=1.0, trainable: bool=True, syn_params: SynapseParams=None, stdp_params: STDPParams=None, weight_multiplier=None, stdp_form='pair'):
         self.synp = SynapseParams() if syn_params is None else syn_params  # synapse parameters are default if None is given
         self.stdpp = STDPParams() if stdp_params is None else stdp_params  # STDP parameters are default if None is given
         self.tki = tki  # reference to timekeeper object that is shared amongst the entire network
@@ -49,7 +48,7 @@ class SynapticGroup:
         self.last_history_update_time = -1.0  # this is the time at which the history array was last updated
         self.p_term = self.precalculate_term()  # precalculate part of the synaptic current calculation
 
-        # triplet stdp parameters THESE ARE NOT LONGER SUPPORTED
+        # triplet stdp parameters THESE ARE NOT LONGER SUPPORTED ? <- maybe?
         self.stdp_r1 = np.zeros((self.m, self.n), dtype=np.float)
         self.stdp_r2 = np.zeros((self.m, self.n), dtype=np.float)
         self.stdp_o1 = np.zeros((self.m, self.n), dtype=np.float)
@@ -61,6 +60,14 @@ class SynapticGroup:
         # pair stdp parameters
         self.stdp_pre = np.zeros((self.m, self.n), dtype=np.float)
         self.stdp_post = np.zeros((self.m, self.n), dtype=np.float)
+
+        # use selected form of stdp
+        if stdp_form == 'pair':
+            self._stdp = self._pair_stdp
+        elif stdp_form == "triplet":
+            self._stdp = self._triplet_stdp
+        else:
+            raise RuntimeError("Invalid stdp form, must be pair or triplet")
 
     def construct_weights(self):
         """
@@ -121,8 +128,12 @@ class SynapticGroup:
         """
         f = np.where(fired_neurons>0.5)
 
+        # increment presynaptic trace (triplet stdp)
         self.stdp_r1[f, :] += 1
         self.stdp_r2[f, :] += 1
+
+        # increment presynaptic trace (standard stdp)
+        self.stdp_pre[f,:] += 1.0
         
         self.roll_history_and_assign(fired_neurons)
         if self.trainable:
@@ -135,13 +146,17 @@ class SynapticGroup:
         """
         f = np.where(fired_neurons>0.5)
         
+        # increment postsynaptic trace (triplet stdp)
         self.stdp_o1[:, f] += 1
         self.stdp_o2[:, f] += 1
+
+        # increment postsynaptic trace (standard stdp)
+        self.stdp_post[:,f] += 1.0
 
         if self.trainable:
             self._stdp(fired_neurons, 'post')  
 
-    def _stdp(self, fired_neurons, fire_time):
+    def _pair_stdp(self, fired_neurons, fire_time):
         """
         Runs online standard STDP algorithm with multiplicative weight dependence
         @param fired_neurons: The spike count array
@@ -156,13 +171,13 @@ class SynapticGroup:
         
         # calculate new weights and stdp parameters based on firing locations
         if fire_time == 'pre':
-            # increment presynaptic trace
-            self.stdp_pre[si,:] += 1.0
+            # # increment presynaptic trace
+            # self.stdp_pre[si,:] += 1.0
             # apply weight change, as a function of the postsynaptic trace
             self.w[si,:] += self.stdpp.pre_multipler * self.stdpp.lr_pre * self.w[si,:] * self.stdp_post[si,:]
         elif fire_time == 'post':
-            # increment postsynaptic trace
-            self.stdp_post[:,si] += 1.0
+            # # increment postsynaptic trace
+            # self.stdp_post[:,si] += 1.0
             # apply weight change, as a function of the presynaptic trace
             self.w[:,si] += self.stdpp.post_multiplier * self.stdpp.lr_post * (1.0 - self.w[:,si]) * self.stdp_pre[:,si]
 
@@ -188,14 +203,14 @@ class SynapticGroup:
         
         # calculate new weights and stdp parameters based on firing locations
         if fire_time == 'pre':
-            self.stdp_r1[si,:] += 1.0
-            self.stdp_r2[si,:] += 1.0
+            # self.stdp_r1[si,:] += 1.0
+            # self.stdp_r2[si,:] += 1.0
             dw = self.stdp_o1[si,:] * (self.stdpp.a2_minus + self.stdpp.a3_minus * self.last_stdp_r2[si,:])
             
             self.w[si,:] = np.clip(self.w[si,:] - self.stdpp.lr * dw, 0.0, 1.0)
         elif fire_time == 'post':
-            self.stdp_o1[:,si] += 1.0
-            self.stdp_o2[:,si] += 1.0
+            # self.stdp_o1[:,si] += 1.0
+            # self.stdp_o2[:,si] += 1.0
 
             dw = self.stdp_r1[:,si] * (self.stdpp.a2_plus + self.stdpp.a3_plus * self.last_stdp_o2[:,si])
             

@@ -61,6 +61,7 @@ if __name__ == "__main__":
     parser.add_argument('--exposure', type=float, default=200.0, help='the duration of time that the network is exposed to each training example')
     parser.add_argument('--input_rate', type=float, default=64.0, help='maximum firing rate of input sensory neurons (Hz)')
     parser.add_argument('--grid_size', type=int, default=8, help='length and width of square grid that bars are generated on')
+    parser.add_argument('--stdp', type=str, default='pair', help='form of stdp to use, can be pair or triplet')
 
     args = parser.parse_args()
 
@@ -87,7 +88,7 @@ if __name__ == "__main__":
     duration = args.duration * msec
 
     inhib_layer_params = LIFParams()
-    inhib_layer_params.gbar_i = 85.0 * nsiem
+    inhib_layer_params.gbar_i = 50.0 * nsiem
     inhib_layer_params.tao_m = 100 * msec
 
     exc_layer_params = params()
@@ -101,7 +102,7 @@ if __name__ == "__main__":
     nn = NeuralNetwork([g1, g2, g3], "bar_learner", tki)
     lp = STDPParams()
 
-    nn.fully_connect("inputs", "exc", trainable=True, stdp_params=lp, minw=0.01, maxw=0.3)
+    nn.fully_connect("inputs", "exc", trainable=True, stdp_params=lp, minw=0.01, maxw=0.3, stdp_form=args.stdp)
     nn.one_to_one_connect("exc", "inh_lateral", w_i=1.0, trainable=False)
     nn.fully_connect("inh_lateral", "exc", w_i=1.0, trainable=False, skip_one_to_one=True)
 
