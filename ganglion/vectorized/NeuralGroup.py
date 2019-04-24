@@ -1,7 +1,6 @@
 import numpy as np
 from timekeeper import TimeKeeperIterator
-from parameters import AdExParams, LIFParams, ExLIFParams, FTLIFParams
-from numba import njit
+from parameters import AdExParams, LIFParams, ExLIFParams, FTLIFParams, IFParams
 
 
 class NeuralGroup:
@@ -47,7 +46,7 @@ class SensoryNeuralGroup(NeuralGroup):
     This class defines a group of "neurons" that are not really neurons, they simply send "spikes"
     when the user tells them too
     """
-    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: AdExParams, field_shape=None):
+    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: IFParams, field_shape=None):
         super().__init__(n_type, name, tki, field_shape=field_shape)
 
         self.spike_count = np.zeros(self.shape, dtype=np.int)  # holds the NUMBER OF spikes that occured in the last evaluated time window
@@ -91,11 +90,11 @@ class SensoryNeuralGroup(NeuralGroup):
         return output
 
 
-class LIFNeuralGroup(NeuralGroup):
+class IFNeuralGroup(NeuralGroup):
     """
-    This class defines a group of Leaky Integrate and Fire Neurons
+    This class defines a group of Integrate and Fire Neurons
     """
-    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: LIFParams, field_shape=None):
+    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: IFParams, field_shape=None):
         super().__init__(n_type, name, tki, field_shape=field_shape)
         # custom parameters
         self.refractory_period = np.full(self.shape, params.refractory_period)  # refractory period for these neurons
@@ -121,7 +120,6 @@ class LIFNeuralGroup(NeuralGroup):
         self.v_m = np.full(self.shape, params.v_m)  # membrane potential
         self.v_spike = np.full(self.shape, params.v_spike)  # spike potential
         self.v_thr = np.full(self.shape, params.v_thr)  # spike threshold potential
-        self.tao_m = np.full(self.shape, params.tao_m)  # membrane time constant
         self.c_m = np.full(self.shape, params.c_m)  # membrane capacitance
 
         # parameter tracks
@@ -140,6 +138,72 @@ class LIFNeuralGroup(NeuralGroup):
         ir[np.where(self.last_spike_time == 0.0)] = 1
         
         return ir
+    
+    def run(self, i_syn):
+        """
+        Update the state of the neurons
+        """
+        # if we are at a new time step since evaluating the neurons, then clear the spike count matrices
+        if self.last_spike_count_update != self.tki.tick_time():
+            # self.spike_count = np.zeros(self.shape, dtype=np.int)
+            self.spike_count.fill(0)
+        
+        self.spiked = np.zeros(self.shape, dtype=np.int)
+
+        # mask of neurons not in refractory period
+        refrac = self.not_in_refractory()
+
+        # calculate change in membrane potential for neurons not in refractory period
+        dvm = self.tki.dt() * (i_syn / self.c_m) * refrac
+        # print(dvm)
+        self.v_m += dvm
+
+        # find indices of neurons that have fired
+        self.spiked = np.where(self.v_m >= self.v_thr)
+
+        # add a new spike to the spike count for each neuron that fired
+        self.spike_count[self.spiked] += 1
+        # update the time at which the spike count array was modified
+        self.last_spike_count_update = self.tki.tick_time()
+        # modify the last-spike-time for each neuron that fired
+        self.last_spike_time[self.spiked] = self.tki.tick_time()
+
+        # If a substantial synaptic inhibitory current is supplied, the timestep used in the Euler's method may not be sufficient to for estimating the amount of
+        # synaptic current coming in on the neurons, this can cause the neuron's membrane potential to pull way below the inhibitory reversal potential.
+        # To try and "patch" this, we force the neurons that went too low to the reversal potential, which is the theoretical minimum membrane potential that the
+        # neuron can have
+        hp = np.where(self.v_m < self.vrev_i)
+        self.v_m[hp] =self.vrev_i[hp]
+
+        # this is a copy of the membrane potential matrix
+        output = self.v_m.copy()
+
+        # change the output to the spike voltage for each neuron that fired. Note: this does not affect the actual v_m array, just a copy of it, because
+        # in this neuron model, the voltage of a spike does not really have any specific meaning, rather, it is the time of the spikes that matter
+        output[self.spiked] = self.v_spike[self.spiked]
+
+        # change the actual membrane voltage to the resting potential for each neuron that fired
+        self.v_m[self.spiked] = self.v_r[self.spiked]
+
+        # if we are tracking any variables, then append them to their respective lists, Note: This can use a lot of memory and cause slowdowns, so only do this when absolutely necessary
+        if "v_m" in self.tracked_vars:
+            self.v_m_track.append(output.copy())
+        if "i_syn" in self.tracked_vars:
+            self.isyn_track.append(i_syn)
+        if "spike" in self.tracked_vars:
+            self.spike_track.append(self.spike_count.copy())
+
+        return output
+
+
+class LIFNeuralGroup(IFNeuralGroup):
+    """
+    This class defines a group of Leaky Integrate and Fire Neurons
+    """
+    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: LIFParams, field_shape=None):
+        super().__init__(n_type, name, tki, params=params, field_shape=field_shape)
+        # Parameters from Brette and Gerstner (2005).
+        self.tao_m = np.full(self.shape, params.tao_m)  # membrane time constant
     
     def run(self, i_syn):
         """

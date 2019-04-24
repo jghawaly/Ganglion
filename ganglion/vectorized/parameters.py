@@ -1,7 +1,7 @@
 from units import *
 
 
-class LIFParams:
+class IFParams:
     def __init__(self):
         # self-defined parameters
         self.refractory_period = 2.0 * msec
@@ -19,6 +19,13 @@ class LIFParams:
         self.gbar_i = 100.0 * nsiem
         self.vrev_e = 0.0 * mvolt
         self.vrev_i = -75.0 * mvolt
+
+
+class LIFParams(IFParams):
+    def __init__(self):
+        super().__init__()
+        # Parameters from Brette and Gerstner (2005).
+        self.tao_m = 9.37 * msec
 
 
 class FTLIFParams(LIFParams):
