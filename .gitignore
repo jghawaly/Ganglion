@@ -3,6 +3,6 @@
 /ganglion/blah*
 /ganglion/profiling*
 /ganglion/vectorized/__pycache__
-/MNIST_data
-/examples/MNIST_data
-/examples/gabor.py
+/ganglion/vectorized/testgroups.py
+/ganglion/examples/MNIST_data
+/ganglion/examples/gabor.py
