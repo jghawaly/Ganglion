@@ -87,7 +87,7 @@ if __name__ == "__main__":
     duration = args.duration * msec
 
     inhib_layer_params = LIFParams()
-    inhib_layer_params.gbar_i = 50.0 * nsiem
+    inhib_layer_params.gbar_i = 85.0 * nsiem
     inhib_layer_params.tao_m = 100 * msec
 
     exc_layer_params = params()

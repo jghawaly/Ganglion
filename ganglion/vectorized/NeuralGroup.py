@@ -1,6 +1,7 @@
 import numpy as np
 from timekeeper import TimeKeeperIterator
 from parameters import AdExParams, LIFParams, ExLIFParams, FTLIFParams, IFParams
+from units import *
 
 
 class NeuralGroup:
@@ -204,11 +205,19 @@ class LIFNeuralGroup(IFNeuralGroup):
         super().__init__(n_type, name, tki, params=params, field_shape=field_shape)
         # Parameters from Brette and Gerstner (2005).
         self.tao_m = np.full(self.shape, params.tao_m)  # membrane time constant
+
+        self.s = np.ones(self.shape, dtype=np.float)  # homeostasis term: current multiplier
+        # self.td = 1000.0 * msec
     
     def run(self, i_syn):
         """
         Update the state of the neurons
         """
+        # where_linear = np.where(self.last_spike_time < self.td)
+        # where_one = np.where(self.last_spike_time >= self.td)
+        # self.s[where_linear] = self.s[where_linear] / self.td
+        # self.s[where_one] = 1.0
+        # i_syn *= self.s
         # if we are at a new time step since evaluating the neurons, then clear the spike count matrices
         if self.last_spike_count_update != self.tki.tick_time():
             # self.spike_count = np.zeros(self.shape, dtype=np.int)
