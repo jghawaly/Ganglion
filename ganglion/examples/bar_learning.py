@@ -54,14 +54,14 @@ def genbars(s1, s2):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Run a simulation of a single neuron.')
+    parser = argparse.ArgumentParser(description='Simulation of a neural network that learns to detect bars in an image.')
     parser.add_argument('model', type=str, help='the neuron model to evaluate')
     parser.add_argument('--duration', type=float, default=500000.0, help='duration of simulation (milliseconds)')
     parser.add_argument('--increment', type=float, default=0.2, help='time increment for numerical integration (milliseconds)')
     parser.add_argument('--exposure', type=float, default=200.0, help='the duration of time that the network is exposed to each training example')
     parser.add_argument('--input_rate', type=float, default=64.0, help='maximum firing rate of input sensory neurons (Hz)')
     parser.add_argument('--grid_size', type=int, default=16, help='length and width of square grid that bars are generated on')
-    parser.add_argument('--stdp', type=str, default='pair', help='form of stdp to use, can be pair or triplet')
+    parser.add_argument('--stdp', type=str, default='triplet', help='form of stdp to use, can be pair or triplet')
 
     args = parser.parse_args()
 
@@ -118,15 +118,18 @@ if __name__ == "__main__":
     # -------------------------------------------------------
 
     d = genbar(args.grid_size, args.grid_size)
-    lts = 0
-    skip = False
+    last_exposure_step = 0
+    rest = False
     for step in tki:
-        if (step - lts) * tki.dt() >= args.exposure * msec:
-            lts = step
-            d = genbar(args.grid_size, args.grid_size)
-            skip = not skip
+        if (step - last_exposure_step) * tki.dt() >= args.exposure * msec:
+            last_exposure_step = step
+            rest = not rest
+            # we only want to increment training data if we are NOT skipping this exposure
+            if not rest:
+                d = genbar(args.grid_size, args.grid_size)
+            
 
-        if skip:
+        if rest:
             g1.run(np.zeros(g1.field_shape, dtype=np.int))
         else:
             # inject spikes into sensory layer
