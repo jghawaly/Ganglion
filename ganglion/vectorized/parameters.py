@@ -32,7 +32,7 @@ class FTLIFParams(LIFParams):
     def __init__(self):
         super().__init__()
         self.ft_add = 3.0 * mvolt
-        self.tao_ft = 244.0 * msec
+        self.tao_ft = 100.0 * msec
 
 
 class ExLIFParams(LIFParams):

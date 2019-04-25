@@ -56,11 +56,11 @@ def genbars(s1, s2):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run a simulation of a single neuron.')
     parser.add_argument('model', type=str, help='the neuron model to evaluate')
-    parser.add_argument('--duration', type=float, default=100000.0, help='duration of simulation (milliseconds)')
-    parser.add_argument('--increment', type=float, default=0.5, help='time increment for numerical integration (milliseconds)')
+    parser.add_argument('--duration', type=float, default=500000.0, help='duration of simulation (milliseconds)')
+    parser.add_argument('--increment', type=float, default=0.2, help='time increment for numerical integration (milliseconds)')
     parser.add_argument('--exposure', type=float, default=200.0, help='the duration of time that the network is exposed to each training example')
     parser.add_argument('--input_rate', type=float, default=64.0, help='maximum firing rate of input sensory neurons (Hz)')
-    parser.add_argument('--grid_size', type=int, default=8, help='length and width of square grid that bars are generated on')
+    parser.add_argument('--grid_size', type=int, default=16, help='length and width of square grid that bars are generated on')
     parser.add_argument('--stdp', type=str, default='pair', help='form of stdp to use, can be pair or triplet')
 
     args = parser.parse_args()
@@ -88,11 +88,11 @@ if __name__ == "__main__":
     duration = args.duration * msec
 
     inhib_layer_params = LIFParams()
-    inhib_layer_params.gbar_i = 50.0 * nsiem
+    inhib_layer_params.gbar_i = 150.0 * nsiem
     inhib_layer_params.tao_m = 100 * msec
 
     exc_layer_params = params()
-    exc_layer_params.gbar_e = 50.0 * nsiem
+    exc_layer_params.gbar_e = 100.0 * nsiem
     exc_layer_params.tao_m = 100 * msec
 
     g1 = SensoryNeuralGroup(np.ones(args.grid_size * args.grid_size, dtype=np.int), "inputs", tki, exc_layer_params, field_shape=(args.grid_size, args.grid_size))
