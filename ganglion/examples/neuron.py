@@ -64,13 +64,13 @@ if __name__ == "__main__":
 
     times = np.arange(0,len(v), 1) * tki.dt() / msec
 
-    plt.plot(times, v)
+    plt.plot(times, v, 'k')
     plt.title("Voltage Track")
     plt.xlabel("Time (msec)")
     plt.ylabel("Membrane Potential (volt)")
     plt.show()
 
-    plt.plot(times, isyn)
+    plt.plot(times, isyn, 'k')
     plt.title("Synaptic Current Track")
     plt.xlabel("Time (msec)")
     plt.ylabel("Synaptic Current (amp)")

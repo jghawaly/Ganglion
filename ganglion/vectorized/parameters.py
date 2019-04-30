@@ -62,7 +62,7 @@ class SynapseParams:
 class STDPParams:
     def __init__(self):
         # triplet STDP settings
-        self.lr = 0.1
+        self.lr = 0.2
         self.a2_plus = 5.0e-10
         self.a3_plus = 6.2e-3
         self.a2_minus = 7.0e-3
@@ -74,10 +74,10 @@ class STDPParams:
         self.eps = 0.33
 
         # pair STDP settings
-        self.stdp_tao_pre = 3.0 * msec
-        self.stdp_tao_post = 3.0 * msec
-        self.lr_pre = 0.04
-        self.lr_post = 0.04
+        self.stdp_tao_pre = 5.0 * msec
+        self.stdp_tao_post = 5.0 * msec
+        self.lr_pre = 0.000005
+        self.lr_post = 0.000005
         self.post_multiplier = 0.6
         self.pre_multipler = -0.3
 

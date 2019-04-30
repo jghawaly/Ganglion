@@ -1,6 +1,7 @@
 import sys
 sys.path.append("../vectorized")
 
+from utils import load_mnist
 from timekeeper import TimeKeeperIterator
 from NeuralGroup import SensoryNeuralGroup, FTLIFNeuralGroup, LIFNeuralGroup
 from NeuralNetwork import NeuralNetwork
@@ -8,12 +9,74 @@ from parameters import FTLIFParams, STDPParams
 from units import *
 from utils import poisson_train, load_mnist, save_img
 
+import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
+import random
+import string
 import argparse
 import os
 
+
+def gen_filter_bank(num_orientations, num_wl, kernel_size):
+    """
+    Generate a filter bank of unique Gabor filters
+    """
+    angles = np.linspace(0, np.pi, num_orientations)
+    wl = np.linspace(1, kernel_size // 2, num_wl)
+    filter_bank = []
+    for theta in angles:
+        wave_bank = []
+        for wavelength in wl:
+            wave_bank.append(cv2.getGaborKernel((kernel_size, kernel_size), 1.0, theta, wavelength, 0.25, 0))
+        filter_bank.append(np.array(wave_bank))
+    
+    return np.array(filter_bank)
+
+
+def run_filters(filter_bank, img):
+    """
+    Apply a bank of filters to the given image and return their total response
+    """
+    out = np.zeros((filter_bank.shape[0], filter_bank.shape[1]), dtype=np.float)
+
+    # for each orientation
+    for i in range(filter_bank.shape[0]):
+        # for each wavelength
+        for j in range(filter_bank.shape[1]):
+            # get the filter
+            f = filter_bank[i, j]
+            # filter the image
+            filtered_img = cv2.filter2D(img, -1, f)
+            # calculate the total sum
+            response = filtered_img.sum()
+            # set the response
+            out[i, j] = response
+
+    return out
+
+
+def gen_filter_map(filter_bank):
+    """
+    Generate a displayable form of the filter map
+    """
+    # for each orientation
+    for i in range(filter_bank.shape[0]):
+        # for each wavelength
+        for j in range(filter_bank.shape[1]):
+            if j == 0:
+                # get the filter
+                f = filter_bank[i, j]
+            else:
+                f = np.hstack((f, filter_bank[i, j]))
+        
+        if i == 0:
+            tf = f 
+        else:
+            tf = np.vstack((tf, f))
+            
+    return tf
 
 def form_full_weight_map(group2, group1_label, group2_label, nn):
     arr = []
@@ -47,19 +110,31 @@ if __name__ == "__main__":
     parser.add_argument('--gbar_i', type=float, default=100.0, help='maximum inhibitory synapse conductivity (nano-siemens)')
     parser.add_argument("--display", action="store_true", help="show final weights at end of simulation")
     parser.add_argument("--save_weights", action="store_true", help="save weights as npy file to the path specified in save_path")
-    parser.add_argument("--save_path", type=str, default="./mnist_weights.npy", help="path to file in which to save the weight matrix")
+    parser.add_argument("--save_path", type=str, default="./mnist_gabor_weights.npy", help="path to file in which to save the weight matrix")
     parser.add_argument("--test", action="store_true", help="run the network in test mode")
-    parser.add_argument("--weights", type=str, default='./saved/mnist_weights.npy', help="path to numpy weights file to load")
+    parser.add_argument("--weights", type=str, default='./saved/mnist_gabor_weights.npy', help="path to numpy weights file to load")
     parser.add_argument("--display_trial", action="store_true", help="show activity of network after each testing trial")
-    parser.add_argument("--classes", type=str, default='./saved/mnist_classes.npy', help='path to file containing class labels for each neuron')
+    parser.add_argument("--classes", type=str, default='./saved/mnist_gabor_classes.npy', help='path to file containing class labels for each neuron')
+    parser.add_argument("--num_orientations", type=int, default=8, help='number of gabor orientations to use for the filter bank')
+    parser.add_argument("--num_wl", type=int, default=8, help='number of gabor wavelengths to use for the filter bank')
+    parser.add_argument("--kernel_size", type=int, default=10, help='kernel size of Gabor filter')
+    parser.add_argument("--names", type=str, default='./saved/mnist_gabor_names.npy', help='path to file containing names of each neuron group')
+    parser.add_argument("--display_filters", action="store_true", help="display the generated filters")
 
     args = parser.parse_args()
 
     # Load MNIST data
     train_data, train_labels, test_data, test_labels = load_mnist()
- 
-    # Normalize MNIST training data such that each image sums to 100
-    train_data = [d / d.sum() * 100 for d in train_data]
+
+    # Generate Gabor filters
+    filters = gen_filter_bank(args.num_orientations, args.num_wl, args.kernel_size)
+    
+    if args.display_filters:
+        m = gen_filter_map(filters)
+        plt.imshow(m, cmap='gray')
+        plt.title("Gabor Filter Bank")
+        plt.show()
+    exit()
 
     # define timekeeper
     tki = TimeKeeperIterator(timeunit=args.increment*msec)
@@ -78,7 +153,7 @@ if __name__ == "__main__":
     exc_layer_params.ft_add = 3 * mvolt
 
     # create neuron groups
-    g1 = SensoryNeuralGroup(np.ones(784, dtype=np.int), "inputs", tki, exc_layer_params, field_shape=(28, 28))
+    g1 = SensoryNeuralGroup(np.ones(args.num_orientations * args.num_scales, dtype=np.int), "input", tki, exc_layer_params, field_shape=(args.num_orientations, args.num_scales))
     g2 = FTLIFNeuralGroup(np.ones(args.grid_size * args.grid_size, dtype=np.int), "exc", tki, exc_layer_params, field_shape=(args.grid_size, args.grid_size), forced_wta=True)
     g3 = LIFNeuralGroup(np.zeros(args.grid_size * args.grid_size, dtype=np.int), "inh_lateral", tki, inhib_layer_params, field_shape=(args.grid_size, args.grid_size))
 
@@ -88,10 +163,11 @@ if __name__ == "__main__":
 
     # create synapses between neural groups
     if not args.test:
-        nn.fully_connect("inputs", "exc", trainable=True, stdp_params=lp, minw=0.5, maxw=0.6, stdp_form=args.stdp)
+        # connect each sensory group to the excitatory layer
+        nn.fully_connect("input", "exc", trainable=True, stdp_params=lp, minw=0.5, maxw=0.6, stdp_form=args.stdp)
     else:
         w = np.load(args.weights)
-        nn.fully_connect("inputs", "exc", trainable=False, stdp_params=lp, minw=0.5, maxw=0.6, stdp_form=args.stdp, loaded_weights=w)
+        nn.fully_connect("input", "exc", trainable=False, stdp_params=lp, minw=0.5, maxw=0.6, stdp_form=args.stdp, loaded_weights=w[i])
     nn.one_to_one_connect("exc", "inh_lateral", w_i=1.0, trainable=False)
     nn.fully_connect("inh_lateral", "exc", w_i=1.0, trainable=False, skip_one_to_one=False)
 
@@ -140,19 +216,23 @@ if __name__ == "__main__":
                     last_save_step = step 
                     save_img("%s/%s.bmp" % (args.save_dir, str(mnist_counter)), form_full_weight_map(g2, "inputs", "exc", nn), normalize=True)
             
-            # inject spikes into sensory layer
-            g1.run(poisson_train(d, tki.dt(), args.input_rate + frequency_addition))
+            # get Gabor filtered version of image
+            filtered_mnist = run_filters(filters, d)
+
+            g1.run(poisson_train(filtered_mnist[i], tki.dt(), args.input_rate + frequency_addition))
             
             # run all layers
-            nn.run_order(["inputs", "exc", "inh_lateral"])
+            nn.run_order(['input', 'exc', 'inh_lateral'])
 
-            # normalize weights between g1 and g2 so that we don't get weight growth runaway
+            # normalize weights between sensory groups and g2 so that we don't get weight growth runaway
             for s in nn.synapses:
-                if s.post_n == g2 and s.pre_n == g1:
+                if s.trainable:
                     s.scale_weights()
                 
             # count the spikes
             sum_spikes += g2.spike_count.sum()
+
+            print(sum_spikes)
 
             # report progress
             sys.stdout.write("Current simulation time: %g milliseconds\r" % (step * tki.dt() / msec))

@@ -2,6 +2,7 @@ import numpy as np
 from timekeeper import TimeKeeperIterator
 from parameters import AdExParams, LIFParams, ExLIFParams, FTLIFParams, IFParams
 from units import *
+import random
 
 
 class NeuralGroup:
@@ -39,6 +40,9 @@ class NeuralGroup:
 
         This method should be overriden for different neuron models
         """
+        return None
+
+    def reset(self):
         return None
 
 
@@ -128,6 +132,9 @@ class IFNeuralGroup(NeuralGroup):
         self.isyn_track = []
         self.spike_track = []
     
+    def reset(self):
+        self.v_m = self.v_r.copy()
+
     def not_in_refractory(self):
         """
         return mask of neurons that ARE NOT in refractory period
@@ -201,13 +208,10 @@ class LIFNeuralGroup(IFNeuralGroup):
     """
     This class defines a group of Leaky Integrate and Fire Neurons
     """
-    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: LIFParams, field_shape=None):
+    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: LIFParams, field_shape=None, forced_wta=None):
         super().__init__(n_type, name, tki, params=params, field_shape=field_shape)
         # Parameters from Brette and Gerstner (2005).
         self.tao_m = np.full(self.shape, params.tao_m)  # membrane time constant
-
-        self.s = np.ones(self.shape, dtype=np.float)  # homeostasis term: current multiplier
-        # self.td = 1000.0 * msec
     
     def run(self, i_syn):
         """
@@ -342,17 +346,21 @@ class FTLIFNeuralGroup(LIFNeuralGroup):
     """
     This class defines a group of Leaky Integrate and Fire Neurons
     """
-    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: FTLIFParams, field_shape=None):
+    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: FTLIFParams, field_shape=None, forced_wta=False):
         super().__init__(n_type, name, tki, params=params, field_shape=field_shape)
 
         # custom parameters
         self.tao_ft = params.tao_ft  # time constant of floating threshold decay
         self.ft_add = params.ft_add  # amount that the floating threshold increases by at each firing
         self.ft = np.zeros(self.shape, dtype=np.float)  # floating threshold
+        self.forced_wta = forced_wta  # True to enable forced winner-take-all dynamic
 
         # custom tracking parameters
         self.ft_track = []
     
+    def wta(self, not_spiked):
+        self.v_m[not_spiked] = self.v_r[not_spiked]
+
     def run(self, i_syn):
         """
         Update the state of the neurons
@@ -375,6 +383,10 @@ class FTLIFNeuralGroup(LIFNeuralGroup):
 
         # find indices of neurons that have fired
         self.spiked = np.where(self.v_m >= (self.v_thr + self.ft))
+        if self.forced_wta:
+            if self.spiked[0].shape[0] > 0:
+                not_spiked = np.where(self.v_m < (self.v_thr + self.ft))
+                self.wta(not_spiked)
 
         # add a new spike to the spike count for each neuron that fired
         self.spike_count[self.spiked] += 1

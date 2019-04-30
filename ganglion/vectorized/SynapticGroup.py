@@ -20,7 +20,9 @@ class SynapticGroup:
     """
     Defines a groups of synapses connecting two groups of neurons
     """
-    def __init__(self, pre_n: NeuralGroup, post_n: NeuralGroup, tki, initial_w: float=None, w_rand_min: float=0.0, w_rand_max: float=1.0, trainable: bool=True, syn_params: SynapseParams=None, stdp_params: STDPParams=None, weight_multiplier=None, stdp_form='pair'):
+    def __init__(self, pre_n: NeuralGroup, post_n: NeuralGroup, tki, initial_w: float=None, w_rand_min: float=0.0, w_rand_max: float=1.0, 
+                 trainable: bool=True, syn_params: SynapseParams=None, stdp_params: STDPParams=None, 
+                 weight_multiplier=None, stdp_form='pair', loaded_weights=None):
         self.synp = SynapseParams() if syn_params is None else syn_params  # synapse parameters are default if None is given
         self.stdpp = STDPParams() if stdp_params is None else stdp_params  # STDP parameters are default if None is given
         self.tki = tki  # reference to timekeeper object that is shared amongst the entire network
@@ -38,7 +40,7 @@ class SynapticGroup:
             self.weight_multiplier = np.ones((self.m, self.n), dtype=np.float)
         else:
             self.weight_multiplier = weight_multiplier
-        self.w = self.construct_weights()  # construct weight matrix
+        self.w = self.construct_weights(loaded_weights)  # construct weight matrix
         
         self.pre_spikes = []
         self.post_spikes = []
@@ -69,19 +71,39 @@ class SynapticGroup:
         else:
             raise RuntimeError("Invalid stdp form, must be pair or triplet")
 
-    def construct_weights(self):
+    def reset(self):
+        self.history.fill(0)
+        self.stdp_r1.fill(0)
+        self.stdp_r2.fill(0)
+        self.stdp_o1.fill(0)
+        self.stdp_o2.fill(0)
+
+        self.last_stdp_r2.fill(0)
+        self.last_stdp_o2.fill(0)
+        self.stdp_pre.fill(0)
+        self.stdp_post.fill(0)
+
+    def construct_weights(self, loaded_weights):
         """
         This generates the weight matrix. This should be overriden for different connection types
         """
         if self.weight_multiplier.shape != (self.m, self.n):
             raise ValueError("The shape of the weight multiplier matrix must be the same shape of the weight matrix but are : %s and %s" % (str(self.weight_multiplier.shape), str((self.m, self.n))))
 
-        if self.initial_w is None:
-            w = np.random.uniform(low=self.w_rand_min, high=self.w_rand_max, size=(self.m, self.n))
+        # check if pre-loaded weights were given
+        if loaded_weights is not None:
+            w = loaded_weights
         else:
-            w = np.full((self.m, self.n), self.initial_w)
+            # create the weights
+            if self.initial_w is None:
+                w = np.random.uniform(low=self.w_rand_min, high=self.w_rand_max, size=(self.m, self.n))
+            else:
+                w = np.full((self.m, self.n), self.initial_w)
         
         return w * self.weight_multiplier
+
+    def save_weights(self, path):
+        np.save(path, self.w)
 
     def construct_dt_matrix(self):
         """
@@ -171,13 +193,9 @@ class SynapticGroup:
         
         # calculate new weights and stdp parameters based on firing locations
         if fire_time == 'pre':
-            # # increment presynaptic trace
-            # self.stdp_pre[si,:] += 1.0
             # apply weight change, as a function of the postsynaptic trace
             self.w[si,:] += self.stdpp.pre_multipler * self.stdpp.lr_pre * self.w[si,:] * self.stdp_post[si,:]
         elif fire_time == 'post':
-            # # increment postsynaptic trace
-            # self.stdp_post[:,si] += 1.0
             # apply weight change, as a function of the presynaptic trace
             self.w[:,si] += self.stdpp.post_multiplier * self.stdpp.lr_post * (1.0 - self.w[:,si]) * self.stdp_pre[:,si]
 
@@ -203,15 +221,10 @@ class SynapticGroup:
         
         # calculate new weights and stdp parameters based on firing locations
         if fire_time == 'pre':
-            # self.stdp_r1[si,:] += 1.0
-            # self.stdp_r2[si,:] += 1.0
             dw = self.stdp_o1[si,:] * (self.stdpp.a2_minus + self.stdpp.a3_minus * self.last_stdp_r2[si,:])
             
             self.w[si,:] = np.clip(self.w[si,:] - self.stdpp.lr * dw, 0.0, 1.0)
         elif fire_time == 'post':
-            # self.stdp_o1[:,si] += 1.0
-            # self.stdp_o2[:,si] += 1.0
-
             dw = self.stdp_r1[:,si] * (self.stdpp.a2_plus + self.stdpp.a3_plus * self.last_stdp_o2[:,si])
             
             self.w[:,si] = np.clip(self.w[:,si] + self.stdpp.lr * dw, 0.0, 1.0)
@@ -235,6 +248,10 @@ class SynapticGroup:
             i_syn += i_current
         
         return i_syn
+    
+    def scale_weights(self):
+        for i in range(self.w.shape[1]):
+            self.w[:,i] = self.w[:,i] / self.w[:,i].sum()
 
 
 if __name__ == "__main__":
