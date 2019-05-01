@@ -130,6 +130,16 @@ if __name__ == "__main__":
 
     # Generate Gabor filters
     filters = gen_filter_bank(args.num_orientations, args.num_wl, args.kernel_size)
+
+    mean = np.array([[ 5.36068707e-03, 3.93552912e-02, 4.72516396e-03, 3.35373874e-01, 7.29861734e-01],
+                     [ 2.24286941e-04, -1.03105332e-02, 5.16733222e-02, 3.99599811e-01, 7.83972028e-01],
+                     [ 6.13534917e-04, 4.65741704e-03, 1.32596147e-01, 4.76184019e-01, 8.42415699e-01],
+                     [ 7.29136348e-04, -1.51733101e-02, 5.92961807e-02, 4.11815740e-01, 7.96186675e-01],
+                     [ 8.44149965e-03, 1.69666193e-02, 2.93210071e-03, 3.45334103e-01, 7.42770799e-01],
+                     [-2.17153246e-04, -6.29194470e-03, 5.46415503e-02, 3.95381299e-01, 7.76469687e-01],
+                     [ 1.41432739e-03, 3.73788969e-03, 1.21986618e-01, 4.52965505e-01, 8.15394371e-01],
+                     [ 2.99210731e-04, 2.73974732e-03, 5.66822461e-02, 3.90257917e-01, 7.68936704e-01]])
+
     
     if args.display_filters:
         m = gen_filter_map(filters)
@@ -140,7 +150,7 @@ if __name__ == "__main__":
     # for d in train_data:
     #     plt.imshow(d)
     #     plt.show()
-    #     filtered_mnist = run_filters(filters, d)
+    #     filtered_mnist = run_filters(filters, d) - mean
     #     plt.imshow(filtered_mnist)
     #     plt.colorbar()
     #     plt.show()
@@ -226,7 +236,8 @@ if __name__ == "__main__":
                     save_img("%s/%s.bmp" % (args.save_dir, str(mnist_counter)), form_full_weight_map(g2, "input", "exc", nn), normalize=True)
             
             # get Gabor filtered version of image
-            filtered_mnist = run_filters(filters, d)
+            filtered_mnist = run_filters(filters, d) - mean
+            filtered_mnist = filtered_mnist / filtered_mnist.sum() * 100
 
             g1.run(poisson_train(filtered_mnist, tki.dt(), args.input_rate + frequency_addition))
             
@@ -297,7 +308,8 @@ if __name__ == "__main__":
                     cummulative_activity.fill(0)
                 
                 # get Gabor filtered version of image
-                filtered_mnist = run_filters(filters, d)
+                filtered_mnist = run_filters(filters, d) - mean
+                filtered_mnist = filtered_mnist / filtered_mnist.sum() * 100
 
                 g1.run(poisson_train(filtered_mnist, tki.dt(), args.input_rate))
 
@@ -369,7 +381,8 @@ if __name__ == "__main__":
                 cummulative_activity.fill(0)
             
             # get Gabor filtered version of image
-            filtered_mnist = run_filters(filters, d)
+            filtered_mnist = run_filters(filters, d) - mean
+            filtered_mnist = filtered_mnist / filtered_mnist.sum() * 100
 
             g1.run(poisson_train(filtered_mnist, tki.dt(), args.input_rate))
 
