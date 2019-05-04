@@ -20,6 +20,9 @@ class IFParams:
         self.vrev_e = 0.0 * mvolt
         self.vrev_i = -75.0 * mvolt
 
+        # group behavior
+        self.force_wta = False
+
 
 class LIFParams(IFParams):
     def __init__(self):
@@ -62,7 +65,7 @@ class SynapseParams:
 class STDPParams:
     def __init__(self):
         # triplet STDP settings
-        self.lr = 0.2
+        self.lr = 0.000005
         self.a2_plus = 5.0e-10
         self.a3_plus = 6.2e-3
         self.a2_minus = 7.0e-3

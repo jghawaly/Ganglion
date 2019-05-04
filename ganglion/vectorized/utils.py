@@ -50,4 +50,3 @@ def save_img(path, image, normalize=False):
         image = cv2.normalize(image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
     
     cv2.imwrite(path, image)
-    

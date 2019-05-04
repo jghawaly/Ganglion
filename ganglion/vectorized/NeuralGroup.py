@@ -34,13 +34,40 @@ class NeuralGroup:
         else:
             self.field_shape = field_shape
 
-    def run(self):
+    def pre_update(self, inputs):
         """
-        Update the state of the neurons.
+        This is called prior to updating the state of the neurons. Inputs would generally be an array of synaptic currents
 
-        This method should be overriden for different neuron models
+        This method should be overridden
         """
         return None
+
+    def update(self, inputs):
+        """
+        Update the state of the neurons. Inputs would generally be an array of synaptic currents. This should perform 
+        all necessary operation required to update self.spiked
+
+        This method should be overridden
+        """
+        return None
+    
+    def post_update(self):
+        """ 
+        This is called after updating the state of the neurons
+
+        This method should be overridden
+        """
+        return None
+
+    def run(self, inputs):
+        """
+        This executes the chain of pre_update, update, and post_update commands
+
+        This method should be overridden
+        """
+        self.pre_update()
+        self.update()
+        return self.post_update()
 
     def reset(self):
         return None
@@ -71,28 +98,32 @@ class SensoryNeuralGroup(NeuralGroup):
         self.v_m_track = []
         self.spike_track = []
     
-    def run(self, spike_count):
-        """
-        Manually "fire" the neurons at the given input
-        """
+    def pre_update(self, spike_count):
         # check to make sure the input has the same dimensions as the group's shape
         if spike_count.shape != self.field_shape:
             raise ValueError("Input spike matrix should be the same shape as the neuron's field matrix but are : %s and %s" % (str(spike_count.shape), str(self.field_shape)))
-        
-        spike_count = np.reshape(spike_count, self.shape)
-        
-        self.spike_count = spike_count
 
-        output = np.zeros(self.shape, dtype=np.float)
+        return True
+    
+    def update(self, spike_count):
+        """
+        Manually "fire" the neurons at the given input
+        """
+        self.spike_count = np.reshape(spike_count, self.shape)
 
-        output[np.where(self.spike_count > 0)] = self.v_spike[np.where(self.spike_count > 0)]  # generate spikes where they are requested
-
+    def post_update(self, spike_count):
         if "v_m" in self.tracked_vars:
-            self.v_m_track.append(output.copy())
+            output = np.zeros(self.shape, dtype=np.float)
+            output[np.where(self.spike_count > 0)] = self.v_spike[np.where(self.spike_count > 0)]  # generate spikes where they are requested
+            self.v_m_track.append(output)
         if "spike" in self.tracked_vars:
             self.spike_track.append(spike_count.copy())
 
-        return output
+    def run(self, spike_count):
+        self.pre_update(spike_count)
+        self.update(spike_count)
+        self.post_update(spike_count)
+        return self.spike_count
 
 
 class IFNeuralGroup(NeuralGroup):
@@ -131,6 +162,9 @@ class IFNeuralGroup(NeuralGroup):
         self.v_m_track = []
         self.isyn_track = []
         self.spike_track = []
+
+        # group behavior
+        self.wta = params.force_wta
     
     def reset(self):
         self.v_m = self.v_r.copy()
@@ -147,17 +181,15 @@ class IFNeuralGroup(NeuralGroup):
         
         return ir
     
-    def run(self, i_syn):
-        """
-        Update the state of the neurons
-        """
+    def pre_update(self, i_syn):
         # if we are at a new time step since evaluating the neurons, then clear the spike count matrices
         if self.last_spike_count_update != self.tki.tick_time():
             # self.spike_count = np.zeros(self.shape, dtype=np.int)
             self.spike_count.fill(0)
         
         self.spiked = np.zeros(self.shape, dtype=np.int)
-
+    
+    def update(self, i_syn):
         # mask of neurons not in refractory period
         refrac = self.not_in_refractory()
 
@@ -169,6 +201,20 @@ class IFNeuralGroup(NeuralGroup):
         # find indices of neurons that have fired
         self.spiked = np.where(self.v_m >= self.v_thr)
 
+    def track_vars(self, i_syn):
+        if "v_m" in self.tracked_vars:
+            # this is a copy of the membrane potential matrix
+            output = self.v_m.copy()
+            # change the output to the spike voltage for each neuron that fired. Note: this does not affect the actual v_m array, just a copy of it, because
+            # in this neuron model, the voltage of a spike does not really have any specific meaning, rather, it is the time of the spikes that matter
+            output[self.spiked] = self.v_spike[self.spiked]
+            self.v_m_track.append(output.copy())
+        if "i_syn" in self.tracked_vars:
+            self.isyn_track.append(i_syn)
+        if "spike" in self.tracked_vars:
+            self.spike_track.append(self.spike_count.copy())
+
+    def post_update(self, i_syn):
         # add a new spike to the spike count for each neuron that fired
         self.spike_count[self.spiked] += 1
         # update the time at which the spike count array was modified
@@ -183,25 +229,19 @@ class IFNeuralGroup(NeuralGroup):
         hp = np.where(self.v_m < self.vrev_i)
         self.v_m[hp] =self.vrev_i[hp]
 
-        # this is a copy of the membrane potential matrix
-        output = self.v_m.copy()
-
-        # change the output to the spike voltage for each neuron that fired. Note: this does not affect the actual v_m array, just a copy of it, because
-        # in this neuron model, the voltage of a spike does not really have any specific meaning, rather, it is the time of the spikes that matter
-        output[self.spiked] = self.v_spike[self.spiked]
-
         # change the actual membrane voltage to the resting potential for each neuron that fired
         self.v_m[self.spiked] = self.v_r[self.spiked]
+    
+    def run(self, i_syn):
+        """
+        Update the state of the neurons
+        """
+        self.pre_update(i_syn)
+        self.update(i_syn)
+        self.post_update(i_syn)
+        self.track_vars(i_syn)
 
-        # if we are tracking any variables, then append them to their respective lists, Note: This can use a lot of memory and cause slowdowns, so only do this when absolutely necessary
-        if "v_m" in self.tracked_vars:
-            self.v_m_track.append(output.copy())
-        if "i_syn" in self.tracked_vars:
-            self.isyn_track.append(i_syn)
-        if "spike" in self.tracked_vars:
-            self.spike_track.append(self.spike_count.copy())
-
-        return output
+        return self.spike_count
 
 
 class LIFNeuralGroup(IFNeuralGroup):
@@ -213,22 +253,7 @@ class LIFNeuralGroup(IFNeuralGroup):
         # Parameters from Brette and Gerstner (2005).
         self.tao_m = np.full(self.shape, params.tao_m)  # membrane time constant
     
-    def run(self, i_syn):
-        """
-        Update the state of the neurons
-        """
-        # where_linear = np.where(self.last_spike_time < self.td)
-        # where_one = np.where(self.last_spike_time >= self.td)
-        # self.s[where_linear] = self.s[where_linear] / self.td
-        # self.s[where_one] = 1.0
-        # i_syn *= self.s
-        # if we are at a new time step since evaluating the neurons, then clear the spike count matrices
-        if self.last_spike_count_update != self.tki.tick_time():
-            # self.spike_count = np.zeros(self.shape, dtype=np.int)
-            self.spike_count.fill(0)
-        
-        self.spiked = np.zeros(self.shape, dtype=np.int)
-
+    def update(self, i_syn):
         # mask of neurons not in refractory period
         refrac = self.not_in_refractory()
 
@@ -239,40 +264,6 @@ class LIFNeuralGroup(IFNeuralGroup):
 
         # find indices of neurons that have fired
         self.spiked = np.where(self.v_m >= self.v_thr)
-
-        # add a new spike to the spike count for each neuron that fired
-        self.spike_count[self.spiked] += 1
-        # update the time at which the spike count array was modified
-        self.last_spike_count_update = self.tki.tick_time()
-        # modify the last-spike-time for each neuron that fired
-        self.last_spike_time[self.spiked] = self.tki.tick_time()
-
-        # If a substantial synaptic inhibitory current is supplied, the timestep used in the Euler's method may not be sufficient to for estimating the amount of
-        # synaptic current coming in on the neurons, this can cause the neuron's membrane potential to pull way below the inhibitory reversal potential.
-        # To try and "patch" this, we force the neurons that went too low to the reversal potential, which is the theoretical minimum membrane potential that the
-        # neuron can have
-        hp = np.where(self.v_m < self.vrev_i)
-        self.v_m[hp] =self.vrev_i[hp]
-
-        # this is a copy of the membrane potential matrix
-        output = self.v_m.copy()
-
-        # change the output to the spike voltage for each neuron that fired. Note: this does not affect the actual v_m array, just a copy of it, because
-        # in this neuron model, the voltage of a spike does not really have any specific meaning, rather, it is the time of the spikes that matter
-        output[self.spiked] = self.v_spike[self.spiked]
-
-        # change the actual membrane voltage to the resting potential for each neuron that fired
-        self.v_m[self.spiked] = self.v_r[self.spiked]
-
-        # if we are tracking any variables, then append them to their respective lists, Note: This can use a lot of memory and cause slowdowns, so only do this when absolutely necessary
-        if "v_m" in self.tracked_vars:
-            self.v_m_track.append(output.copy())
-        if "i_syn" in self.tracked_vars:
-            self.isyn_track.append(i_syn)
-        if "spike" in self.tracked_vars:
-            self.spike_track.append(self.spike_count.copy())
-
-        return output
 
 
 class ExLIFNeuralGroup(LIFNeuralGroup):
@@ -286,17 +277,7 @@ class ExLIFNeuralGroup(LIFNeuralGroup):
         self.sf = np.full(self.shape, params.sf)  # slope factor for exponential activation nonlinearity term
         self.v_rheobase = np.full(self.shape, params.v_rheobase)  # rheobase potential
     
-    def run(self, i_syn):
-        """
-        Update the state of the neurons
-        """
-        # if we are at a new time step since evaluating the neurons, then clear the spike count matrices
-        if self.last_spike_count_update != self.tki.tick_time():
-            # self.spike_count = np.zeros(self.shape, dtype=np.int)
-            self.spike_count.fill(0)
-        
-        self.spiked = np.zeros(self.shape, dtype=np.int)
-
+    def update(self, i_syn):
         # mask of neurons not in refractory period
         refrac = self.not_in_refractory()
 
@@ -307,44 +288,10 @@ class ExLIFNeuralGroup(LIFNeuralGroup):
         # find indices of neurons that have fired
         self.spiked = np.where(self.v_m >= self.v_thr)
 
-        # add a new spike to the spike count for each neuron that fired
-        self.spike_count[self.spiked] += 1
-        # update the time at which the spike count array was modified
-        self.last_spike_count_update = self.tki.tick_time()
-        # modify the last-spike-time for each neuron that fired
-        self.last_spike_time[self.spiked] = self.tki.tick_time()
-
-        # If a substantial synaptic inhibitory current is supplied, the timestep used in the Euler's method may not be sufficient to for estimating the amount of
-        # synaptic current coming in on the neurons, this can cause the neuron's membrane potential to pull way below the inhibitory reversal potential.
-        # To try and "patch" this, we force the neurons that went too low to the reversal potential, which is the theoretical minimum membrane potential that the
-        # neuron can have
-        hp = np.where(self.v_m < self.vrev_i)
-        self.v_m[hp] =self.vrev_i[hp]
-
-        # this is a copy of the membrane potential matrix
-        output = self.v_m.copy()
-
-        # change the output to the spike voltage for each neuron that fired. Note: this does not affect the actual v_m array, just a copy of it, because
-        # in this neuron model, the voltage of a spike does not really have any specific meaning, rather, it is the time of the spikes that matter
-        output[self.spiked] = self.v_spike[self.spiked]
-
-        # change the actual membrane voltage to the resting potential for each neuron that fired
-        self.v_m[self.spiked] = self.v_r[self.spiked]
-
-        # if we are tracking any variables, then append them to their respective lists, Note: This can use a lot of memory and cause slowdowns, so only do this when absolutely necessary
-        if "v_m" in self.tracked_vars:
-            self.v_m_track.append(output.copy())
-        if "i_syn" in self.tracked_vars:
-            self.isyn_track.append(i_syn)
-        if "spike" in self.tracked_vars:
-            self.spike_track.append(self.spike_count.copy())
-
-        return output
-
 
 class FTLIFNeuralGroup(LIFNeuralGroup):
     """
-    This class defines a group of Leaky Integrate and Fire Neurons
+    This class defines a group of Leaky Integrate and Fire Neurons with a floating threshold that acts as a firing-rate adaptation parameter
     """
     def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: FTLIFParams, field_shape=None, forced_wta=False):
         super().__init__(n_type, name, tki, params=params, field_shape=field_shape)
@@ -358,20 +305,23 @@ class FTLIFNeuralGroup(LIFNeuralGroup):
         # custom tracking parameters
         self.ft_track = []
     
-    def wta(self, not_spiked):
-        self.v_m[not_spiked] = self.v_r[not_spiked]
+    def track_vars(self, i_syn):
+        # if we are tracking any variables, then append them to their respective lists, Note: This can use a lot of memory and cause slowdowns, so only do this when absolutely necessary
+        if "v_m" in self.tracked_vars:
+            # this is a copy of the membrane potential matrix
+            output = self.v_m.copy()
+            # change the output to the spike voltage for each neuron that fired. Note: this does not affect the actual v_m array, just a copy of it, because
+            # in this neuron model, the voltage of a spike does not really have any specific meaning, rather, it is the time of the spikes that matter
+            output[self.spiked] = self.v_spike[self.spiked]
+            self.v_m_track.append(output.copy())
+        if "i_syn" in self.tracked_vars:
+            self.isyn_track.append(i_syn)
+        if "spike" in self.tracked_vars:
+            self.spike_track.append(self.spike_count.copy())
+        if "ft" in self.tracked_vars:
+            self.ft_track.append(self.ft.copy())
 
-    def run(self, i_syn):
-        """
-        Update the state of the neurons
-        """
-        # if we are at a new time step since evaluating the neurons, then clear the spike count matrices
-        if self.last_spike_count_update != self.tki.tick_time():
-            # self.spike_count = np.zeros(self.shape, dtype=np.int)
-            self.spike_count.fill(0)
-        
-        self.spiked = np.zeros(self.shape, dtype=np.int)
-
+    def update(self, i_syn):
         # mask of neurons not in refractory period
         refrac = self.not_in_refractory()
 
@@ -383,51 +333,9 @@ class FTLIFNeuralGroup(LIFNeuralGroup):
 
         # find indices of neurons that have fired
         self.spiked = np.where(self.v_m >= (self.v_thr + self.ft))
-        if self.forced_wta:
-            if self.spiked[0].shape[0] > 0:
-                not_spiked = np.where(self.v_m < (self.v_thr + self.ft))
-                self.wta(not_spiked)
-
-        # add a new spike to the spike count for each neuron that fired
-        self.spike_count[self.spiked] += 1
-
-        # update the time at which the spike count array was modified
-        self.last_spike_count_update = self.tki.tick_time()
-
-        # modify the last-spike-time for each neuron that fired
-        self.last_spike_time[self.spiked] = self.tki.tick_time()
 
         # update floating threshold for each neuron that fired
         self.ft[self.spiked] += self.ft_add
-
-        # If a substantial synaptic inhibitory current is supplied, the timestep used in the Euler's method may not be sufficient to for estimating the amount of
-        # synaptic current coming in on the neurons, this can cause the neuron's membrane potential to pull way below the inhibitory reversal potential.
-        # To try and "patch" this, we force the neurons that went too low to the reversal potential, which is the theoretical minimum membrane potential that the
-        # neuron can have
-        hp = np.where(self.v_m < self.vrev_i)
-        self.v_m[hp] =self.vrev_i[hp]
-
-        # this is a copy of the membrane potential matrix
-        output = self.v_m.copy()
-
-        # change the output to the spike voltage for each neuron that fired. Note: this does not affect the actual v_m array, just a copy of it, because
-        # in this neuron model, the voltage of a spike does not really have any specific meaning, rather, it is the time of the spikes that matter
-        output[self.spiked] = self.v_spike[self.spiked]
-
-        # change the actual membrane voltage to the resting potential for each neuron that fired
-        self.v_m[self.spiked] = self.v_r[self.spiked]
-
-        # if we are tracking any variables, then append them to their respective lists, Note: This can use a lot of memory and cause slowdowns, so only do this when absolutely necessary
-        if "v_m" in self.tracked_vars:
-            self.v_m_track.append(output.copy())
-        if "i_syn" in self.tracked_vars:
-            self.isyn_track.append(i_syn)
-        if "spike" in self.tracked_vars:
-            self.spike_track.append(self.spike_count.copy())
-        if "ft" in self.tracked_vars:
-            self.ft_track.append(self.ft.copy())
-
-        return output
     
 
 class AdExNeuralGroup(ExLIFNeuralGroup):
@@ -445,55 +353,30 @@ class AdExNeuralGroup(ExLIFNeuralGroup):
         # parameter tracks
         self.adap_track = []
 
-    def run(self, i_syn):
-        """
-        Update the state of the neurons via the Adaptive Exponential Integrate and Fire neuron model
-        """
-        # if we are at a new time step since evaluating the neurons, then clear the spike count matrices
-        if self.last_spike_count_update != self.tki.tick_time():
-            # self.spike_count = np.zeros(self.shape, dtype=np.int)
-            self.spike_count.fill(0)
-        
-        self.spiked = np.zeros(self.shape, dtype=np.int)
-
+    def update(self, i_syn):
         # mask of neurons not in refractory period
         refrac = self.not_in_refractory()
 
         # calculate change in membrane potential for neurons not in refractory period
-        dvm = self.tki.dt() * ((-(self.v_m - self.v_r) + self.sf * np.exp((self.v_m - self.v_rheobase) / self.sf)) / self.tao_m + i_syn / self.c_m - self.w / self.c_m) * refrac
+        self.v_m += self.tki.dt() * ((-(self.v_m - self.v_r) + self.sf * np.exp((self.v_m - self.v_rheobase) / self.sf)) / self.tao_m + i_syn / self.c_m - self.w / self.c_m) * refrac
 
         # calculate adaptation change
-        dw = self.tki.dt() * ((self.a * (self.v_m - self.v_r) - self.w) / self.tao_w) * refrac
-
-        # update variables
-        self.v_m += dvm
-        self.w += dw
+        self.w += self.tki.dt() * ((self.a * (self.v_m - self.v_r) - self.w) / self.tao_w) * refrac
 
         # find indices of neurons that have fired
         self.spiked = np.where(self.v_m >= self.v_thr)
 
-        # add a new spike to the spike count for each neuron that fired
-        self.spike_count[self.spiked] += 1
-        # update the time at which the spike count array was modified
-        self.last_spike_count_update = self.tki.tick_time()
-        # modify the last-spike-time for each neuron that fired
-        self.last_spike_time[self.spiked] = self.tki.tick_time()
-
-        # this is a copy of the membrane potential matrix
-        output = self.v_m.copy()
-
-        # change the output to the spike voltage for each neuron that fired. Note: this does not affect the actual v_m array, just a copy of it, because
-        # in this neuron model, the voltage of a spike does not really have any specific meaning, rather, it is the time of the spikes that matter
-        output[self.spiked] = self.v_spike[self.spiked]
-
-        # change the actual membrane voltage to the resting potential for each neuron that fired
-        self.v_m[self.spiked] = self.v_r[self.spiked]
-
         # increase the w parameter by b for all fired neurons
         self.w[self.spiked] += self.b[self.spiked]
 
+    def track_vars(self, i_syn):
         # if we are tracking any variables, then append them to their respective lists, Note: This can use a lot of memory and cause slowdowns, so only do this when absolutely necessary
         if "v_m" in self.tracked_vars:
+            # this is a copy of the membrane potential matrix
+            output = self.v_m.copy()
+            # change the output to the spike voltage for each neuron that fired. Note: this does not affect the actual v_m array, just a copy of it, because
+            # in this neuron model, the voltage of a spike does not really have any specific meaning, rather, it is the time of the spikes that matter
+            output[self.spiked] = self.v_spike[self.spiked]
             self.v_m_track.append(output.copy())
         if "i_syn" in self.tracked_vars:
             self.isyn_track.append(i_syn)
@@ -501,5 +384,3 @@ class AdExNeuralGroup(ExLIFNeuralGroup):
             self.spike_track.append(self.spike_count.copy())
         if "adap" in self.tracked_vars:
             self.adap_track.append(self.w.copy())
-
-        return output
