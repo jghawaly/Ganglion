@@ -145,7 +145,7 @@ class SynapticGroup:
         """
         f = np.where(fired_neurons>0.5)
 
-        # increment triplet stdp standadr presynaptic trace
+        # increment triplet stdp standard presynaptic trace
         self.stdp_r1[f, :] += 1
 
         # increment presynaptic trace (standard stdp)
@@ -155,7 +155,7 @@ class SynapticGroup:
         if self.trainable:
             self._stdp(fired_neurons, 'pre') 
         
-        # icnrement triplet stdp tripley presynaptic trace
+        # increment triplet stdp tripley presynaptic trace
         self.stdp_r2[f, :] += 1
 
     def post_fire_notify(self, fired_neurons):

@@ -3,6 +3,7 @@ from timekeeper import TimeKeeperIterator
 from parameters import AdExParams, LIFParams, ExLIFParams, FTLIFParams, IFParams
 from units import *
 import random
+import tensorflow as tf
 
 
 class NeuralGroup:
@@ -304,6 +305,7 @@ class FTLIFNeuralGroup(LIFNeuralGroup):
 
         # custom tracking parameters
         self.ft_track = []
+
     
     def track_vars(self, i_syn):
         # if we are tracking any variables, then append them to their respective lists, Note: This can use a lot of memory and cause slowdowns, so only do this when absolutely necessary
