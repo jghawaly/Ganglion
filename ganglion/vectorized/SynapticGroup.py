@@ -50,14 +50,12 @@ class SynapticGroup:
         self.last_history_update_time = -1.0  # this is the time at which the history array was last updated
         self.p_term = self.precalculate_term()  # precalculate part of the synaptic current calculation
 
-        # triplet stdp parameters THESE ARE NOT LONGER SUPPORTED ? <- maybe?
+        # triplet stdp parameters 
         self.stdp_r1 = np.zeros((self.m, self.n), dtype=np.float)
         self.stdp_r2 = np.zeros((self.m, self.n), dtype=np.float)
         self.stdp_o1 = np.zeros((self.m, self.n), dtype=np.float)
         self.stdp_o2 = np.zeros((self.m, self.n), dtype=np.float)
 
-        self.last_stdp_r2 = np.zeros((self.m, self.n), dtype=np.float)
-        self.last_stdp_o2 = np.zeros((self.m, self.n), dtype=np.float)
         # ------------------------------------------------------------
         # pair stdp parameters
         self.stdp_pre = np.zeros((self.m, self.n), dtype=np.float)
@@ -78,8 +76,6 @@ class SynapticGroup:
         self.stdp_o1.fill(0)
         self.stdp_o2.fill(0)
 
-        self.last_stdp_r2.fill(0)
-        self.last_stdp_o2.fill(0)
         self.stdp_pre.fill(0)
         self.stdp_post.fill(0)
 
@@ -134,10 +130,9 @@ class SynapticGroup:
         """
         Roll the spike history to timestamp t-1 and assign the latest incoming spikes
         """
-        # if self.tki.tick_time() == self.last_history_update_time:
-        #     print(self.pre_n.name)
-        #     print(self.post_n.name)
-        #     raise RuntimeError("An attempt was made to modify the synaptic history matrix more than once in a single time step.")
+        if self.tki.tick_time() == self.last_history_update_time:
+            # if this history term has already been updated at this time step, then add to it rather than roll and reassign
+            self.history[0] += assignment
         
         self.history = fast_row_roll(self.history, assignment)  
         
@@ -150,9 +145,8 @@ class SynapticGroup:
         """
         f = np.where(fired_neurons>0.5)
 
-        # increment presynaptic trace (triplet stdp)
+        # increment triplet stdp standadr presynaptic trace
         self.stdp_r1[f, :] += 1
-        self.stdp_r2[f, :] += 1
 
         # increment presynaptic trace (standard stdp)
         self.stdp_pre[f,:] += 1.0
@@ -160,6 +154,9 @@ class SynapticGroup:
         self.roll_history_and_assign(fired_neurons)
         if self.trainable:
             self._stdp(fired_neurons, 'pre') 
+        
+        # icnrement triplet stdp tripley presynaptic trace
+        self.stdp_r2[f, :] += 1
 
     def post_fire_notify(self, fired_neurons):
         """
@@ -168,15 +165,17 @@ class SynapticGroup:
         """
         f = np.where(fired_neurons>0.5)
         
-        # increment postsynaptic trace (triplet stdp)
+        # increment triplet stdp standard postsynaptic trace
         self.stdp_o1[:, f] += 1
-        self.stdp_o2[:, f] += 1
 
         # increment postsynaptic trace (standard stdp)
         self.stdp_post[:,f] += 1.0
 
         if self.trainable:
             self._stdp(fired_neurons, 'post')  
+        
+        # increment triplet stdp triplet postsynaptic trace
+        self.stdp_o2[:, f] += 1
 
     def _pair_stdp(self, fired_neurons, fire_time):
         """
@@ -205,10 +204,6 @@ class SynapticGroup:
         """
         # if self.tki.tick_time() == self.last_history_update_time:
         #     raise RuntimeError("An attempt was made to run the STDP training process on a single synaptic group more than once in a single time step.")
-        
-        # reset what is considered the previous r2 and o2 parameters
-        self.last_stdp_o2 = self.stdp_o2.copy()
-        self.last_stdp_r2 = self.stdp_r2.copy()
 
         # calculate change in STDP spike trace parameters using Euler's method
         self.stdp_r1 += -1.0 * self.tki.dt() * self.stdp_r1 / self.stdpp.tao_plus
@@ -221,11 +216,11 @@ class SynapticGroup:
         
         # calculate new weights and stdp parameters based on firing locations
         if fire_time == 'pre':
-            dw = self.stdp_o1[si,:] * (self.stdpp.a2_minus + self.stdpp.a3_minus * self.last_stdp_r2[si,:])
+            dw = self.stdp_o1[si,:] * (self.stdpp.a2_minus + self.stdpp.a3_minus * self.stdp_r2[si,:])
             
             self.w[si,:] = np.clip(self.w[si,:] - self.stdpp.lr * dw, 0.0, 1.0)
         elif fire_time == 'post':
-            dw = self.stdp_r1[:,si] * (self.stdpp.a2_plus + self.stdpp.a3_plus * self.last_stdp_o2[:,si])
+            dw = self.stdp_r1[:,si] * (self.stdpp.a2_plus + self.stdpp.a3_plus * self.stdp_o2[:,si])
             
             self.w[:,si] = np.clip(self.w[:,si] + self.stdpp.lr * dw, 0.0, 1.0)
 

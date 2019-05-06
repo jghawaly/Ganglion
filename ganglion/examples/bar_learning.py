@@ -89,11 +89,11 @@ if __name__ == "__main__":
 
     inhib_layer_params = LIFParams()
     inhib_layer_params.gbar_i = 20.0 * nsiem
-    inhib_layer_params.tao_m = 100 * msec
+    inhib_layer_params.tao_m = 40 * msec
 
     exc_layer_params = params()
     exc_layer_params.gbar_e = 10.0 * nsiem
-    exc_layer_params.tao_m = 100 * msec
+    exc_layer_params.tao_m = 40 * msec
 
     g1 = SensoryNeuralGroup(np.ones(args.grid_size * args.grid_size, dtype=np.int), "inputs", tki, exc_layer_params, field_shape=(args.grid_size, args.grid_size))
     g2 = model(np.ones(16, dtype=np.int), "exc", tki, exc_layer_params, field_shape=(4,4))
@@ -101,15 +101,12 @@ if __name__ == "__main__":
 
     nn = NeuralNetwork([g1, g2, g3], "bar_learner", tki)
     lp = STDPParams()
-    lp.lr_pre = 0.01
-    lp.lr_post = 0.01
-    lp.lr = 1
+    lp.lr_pre = 1.0
+    lp.lr_post = 1.0
 
     nn.fully_connect("inputs", "exc", trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, stdp_form=args.stdp)
     nn.one_to_one_connect("exc", "inh_lateral", w_i=1.0, trainable=False)
     nn.fully_connect("inh_lateral", "exc", w_i=1.0, trainable=False, skip_one_to_one=True)
-
-    vms = []
 
     d = genbar(args.grid_size, args.grid_size)
     last_exposure_step = 0
