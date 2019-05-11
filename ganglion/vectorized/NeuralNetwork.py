@@ -1,6 +1,5 @@
-from SynapticGroup import SynapticGroup
+from SynapticGroup import BaseSynapticGroup, PairSTDPSynapticGroup, TripletSTDPSynapticGroup, DASTDPSynapticGroup
 from NeuralGroup import SensoryNeuralGroup
-from parameters import STDPParams
 import numpy as np
 import multiprocessing
 
@@ -26,16 +25,12 @@ class NeuralNetwork:
 
         raise ValueError("There is no NeuralGroup with the name %s in this NeuralNetwork." % tag)
 
-    def fully_connect(self, g1_tag, g2_tag, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9, skip_one_to_one=False, stdp_form='pair', loaded_weights=None):
+    def fully_connect(self, g1_tag, g2_tag, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9, skip_one_to_one=False, s_type='pair', loaded_weights=None):
         """
         Connect all of the neurons in g1 to every neuron in g2 with a given probability.
         if skip_one_to_one is set to True, then for each neuron, n1 in g1, connect n1 to each neuron, n2 in g2, 
         ONLY IF n1 DOES NOT have an axon projecting to n2. This is useful for lateral inhibition.
         """
-
-        if stdp_params is None:
-            stdp_params = STDPParams()
-        
         g1 = self.g(g1_tag)
         g2 = self.g(g2_tag)
 
@@ -43,41 +38,55 @@ class NeuralNetwork:
         if skip_one_to_one:
             np.fill_diagonal(wm, 0.0)
 
-        s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, stdp_form=stdp_form, loaded_weights=loaded_weights)
+        if s_type == 'pair':
+            s = PairSTDPSynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights)
+        elif s_type == 'triplet':
+            s = TripletSTDPSynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights)
+        elif s_type == 'base':
+            s = BaseSynapticGroup(g1, g2, self.tki, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights)
+        elif s_type == 'da':
+            s = DASTDPSynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights)
+        else:
+            raise RuntimeError("%s is not a valid synapse time, must be pair, triplet, or base" % (s_type))
 
         # store the new synaptic group into memory
         self.synapses.append(s)
     
-    def one_to_one_connect(self, g1_tag, g2_tag, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9, stdp_form='pair', loaded_weights=None):
+    def one_to_one_connect(self, g1_tag, g2_tag, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9, s_type='pair', loaded_weights=None):
         """
         Connect all of the neurons in g1 to the neurons in g2 at the same position as they are in g1.
         """
-        if stdp_params is None:
-            stdp_params = STDPParams()
-        
         g1 = self.g(g1_tag)
         g2 = self.g(g2_tag)
 
         if g1.shape != g2.shape:
             raise ValueError("The shape of the first neural group must be the same shape of the second neural group but are : %s and %s" % (str(g1.shape), str(g2.shape)))
-
+        
         wm = np.zeros((g1.shape[0], g2.shape[0]), dtype=np.float)
         # one-to-one mapping
         np.fill_diagonal(wm, 1.0)
 
-        s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, stdp_form=stdp_form, loaded_weights=loaded_weights)
+        # s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, stdp_form=stdp_form, loaded_weights=loaded_weights)
+
+        if s_type == 'pair':
+            s = PairSTDPSynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights)
+        elif s_type == 'triplet':
+            s = TripletSTDPSynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights)
+        elif s_type == 'base':
+            s = BaseSynapticGroup(g1, g2, self.tki, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights)
+        elif s_type == 'da':
+            s = DASTDPSynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights)
+        else:
+            raise RuntimeError("%s is not a valid synapse time, must be pair, triplet, or base" % (s_type))
 
         # store the new synaptic group into memory
         self.synapses.append(s)
     
-    def convolve_connect(self, g1_tag, g2_tag, patch, rstride, cstride, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9, stdp_form='pair', loaded_weights=None):
+    def convolve_connect(self, g1_tag, g2_tag, patch, rstride, cstride, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9, s_type='pair', loaded_weights=None):
         """
         Connect the first group to the second group in a convolutional/patched pattern. NOTE: Find a better way to
         describe this
         """
-        if stdp_params is None:
-            stdp_params = STDPParams()
-        
         g1 = self.g(g1_tag)
         g2 = self.g(g2_tag)
 
@@ -133,8 +142,19 @@ class NeuralNetwork:
                 wm[a_mod, w_b_keys[r_s, c_s]] = 1.0
 
         # define the synaptic group
-        s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, stdp_form=stdp_form, loaded_weights=loaded_weights)
+        # s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, stdp_form=stdp_form, loaded_weights=loaded_weights)
         
+        if s_type == 'pair':
+            s = PairSTDPSynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights)
+        elif s_type == 'triplet':
+            s = TripletSTDPSynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights)
+        elif s_type == 'base':
+            s = BaseSynapticGroup(g1, g2, self.tki, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights)
+        elif s_type == 'da':
+            s = DASTDPSynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights)
+        else:
+            raise RuntimeError("%s is not a valid synapse time, must be pair, triplet, or base" % (s_type))
+
         # store the new synaptic group into memory
         self.synapses.append(s)
 
@@ -165,6 +185,20 @@ class NeuralNetwork:
         
         return None
     
+    def save_w(self, path, g1_tag, g2_tag):
+        """
+        Saves the weight matrix between two neural groups to the specified path. Returns True if successful
+        """
+        g1 = self.g(g1_tag)
+        g2 = self.g(g2_tag)
+
+        for s in self.synapses:
+            if s.pre_n == g1 and s.post_n == g2:
+                s.save_weights(path)
+                return True
+        
+        return False
+
     def set_trainability(self, val: bool):
 
         """Set the trainability of the synaptic groups in this network"""
@@ -204,6 +238,11 @@ class NeuralNetwork:
                     if s.post_n == g:
                         s.post_fire_notify(g.spike_count)
 
+    def dopamine_puff(self, intensity):
+        for s in self.synapses:
+            if type(s) == DASTDPSynapticGroup:
+                s.apply_dopamine(intensity)
+    
     def reset(self):
         for g in self.neural_groups:
             g.reset()

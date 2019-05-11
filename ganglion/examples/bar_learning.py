@@ -4,7 +4,7 @@ sys.path.append("../vectorized")
 from timekeeper import TimeKeeperIterator
 from NeuralGroup import SensoryNeuralGroup, IFNeuralGroup, LIFNeuralGroup, FTLIFNeuralGroup, ExLIFNeuralGroup, AdExNeuralGroup
 from NeuralNetwork import NeuralNetwork
-from parameters import IFParams, LIFParams, FTLIFParams, ExLIFParams, AdExParams, STDPParams
+from parameters import IFParams, LIFParams, FTLIFParams, ExLIFParams, AdExParams, PairSTDPParams, TripletSTDPParams
 from units import *
 from utils import poisson_train
 import numpy as np
@@ -57,8 +57,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Simulation of a neural network that learns to detect bars in an image.')
     parser.add_argument('--model', type=str, default='ftlif', help='the neuron model to evaluate, if, lif, ftlif, exlif, adex')
     parser.add_argument('--duration', type=float, default=100000.0, help='duration of simulation (milliseconds)')
-    parser.add_argument('--increment', type=float, default=1.0, help='time increment for numerical integration (milliseconds)')
-    parser.add_argument('--exposure', type=float, default=200.0, help='the duration of time that the network is exposed to each training example')
+    parser.add_argument('--increment', type=float, default=0.5, help='time increment for numerical integration (milliseconds)')
+    parser.add_argument('--exposure', type=float, default=40.0, help='the duration of time that the network is exposed to each training example')
     parser.add_argument('--input_rate', type=float, default=64.0, help='maximum firing rate of input sensory neurons (Hz)')
     parser.add_argument('--grid_size', type=int, default=16, help='length and width of square grid that bars are generated on')
     parser.add_argument('--stdp', type=str, default='triplet', help='form of stdp to use, can be pair or triplet')
@@ -81,7 +81,14 @@ if __name__ == "__main__":
         model = AdExNeuralGroup
         params = AdExParams
     else:
-        raise RuntimeError("%s is not a valid neuron model, must be if, lif, ftlif, exlif, or adex.")
+        raise RuntimeError("%s is not a valid neuron model, must be if, lif, ftlif, exlif, or adex." % args.model)
+    
+    if args.stdp == 'pair':
+        stdp_params = PairSTDPParams
+    elif args.stdp == 'triplet':
+        stdp_params = TripletSTDPParams
+    else:
+        raise RuntimeError("%s is not a valid stdp model, must be pair or triplet." % args.stdp)
 
     start = time.time()
     tki = TimeKeeperIterator(timeunit=args.increment*msec)
@@ -100,11 +107,11 @@ if __name__ == "__main__":
     g3 = LIFNeuralGroup(np.zeros(16, dtype=np.int), "inh_lateral", tki, inhib_layer_params, field_shape=(4,4))
 
     nn = NeuralNetwork([g1, g2, g3], "bar_learner", tki)
-    lp = STDPParams()
-    lp.lr_pre = 1.0
-    lp.lr_post = 1.0
+    lp = stdp_params()
+    if args.stdp == 'triplet':
+        lp.lr = 0.05
 
-    nn.fully_connect("inputs", "exc", trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, stdp_form=args.stdp)
+    nn.fully_connect("inputs", "exc", trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, s_type=args.stdp)
     nn.one_to_one_connect("exc", "inh_lateral", w_i=1.0, trainable=False)
     nn.fully_connect("inh_lateral", "exc", w_i=1.0, trainable=False, skip_one_to_one=True)
 

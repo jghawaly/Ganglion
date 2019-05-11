@@ -2,9 +2,9 @@ import sys
 sys.path.append("../vectorized")
 
 from timekeeper import TimeKeeperIterator
-from NeuralGroup import ExLIFNeuralGroup, SensoryNeuralGroup
+from NeuralGroup import LIFNeuralGroup, SensoryNeuralGroup
 from NeuralNetwork import NeuralNetwork
-from parameters import ExLIFParams, STDPParams
+from parameters import LIFParams, DASTDPParams
 from units import *
 from utils import poisson_train
 import numpy as np
@@ -13,6 +13,7 @@ import time
 import random
 import matplotlib.pyplot as plt
 import cv2
+import matplotlib.pyplot as plt
 
 
 """
@@ -96,143 +97,190 @@ class GridWorld:
         state = np.dstack((self.obstacle_map, self.position_map, self.meal_map))
         return state
 
+class DodgeWorld:
+    def __init__(self, grid_shape=(8, 4), speed=4.0, same_col=False, reward_scheme=(-1.0, 1.0, 0.0)):
+        self.speed = speed
+        self.step_duration = 1.0 / speed / msec
+        self.shape = grid_shape
+        self.same_col = same_col
+        self.reward_scheme = reward_scheme
+
+        col_ap = nprand.randint(0, self.shape[1])
+        col_bp = col_ap if self.same_col else nprand.randint(0, self.shape[1])
+        self.ap = (self.shape[0]-1, col_ap)
+        self.bp = (0, col_bp)
+    
+    def step(self, action):
+        last_agent_position = self.ap
+        if action == 0:
+            self.ap = (self.ap[0], self.ap[1]-1)
+        elif action == 1:
+            self.ap = (self.ap[0], self.ap[1]+1)
+        else:
+            pass
+        
+        if self.ap[1] == self.shape[1] or self.ap[1] < 0:
+            self.ap = last_agent_position
+
+        self.bp = (self.bp[0]+1, self.bp[1])
+
+        if self.bp == self.ap:
+            reward = self.reward_scheme[0]
+        elif self.bp[0] == self.shape[0] - 1:
+            reward = self.reward_scheme[1]
+        else:
+            reward = self.reward_scheme[2]
+        
+        return reward, self.get_state()
+    
+    def get_pixel_state(self):
+        state = np.zeros(self.shape)
+        state[self.ap] = 1.0
+        try:
+            state[self.bp] = 1.0
+        except IndexError:
+            pass
+        return state
+    
+    def get_state(self):
+        state = np.zeros(2 * self.shape[1] - 1, dtype=np.float)
+        diff = self.ap[1] - self.bp[1]
+
+        state[diff + self.shape[1] - 1] = 1.0
+
+        return state
+    
+    def reset(self):
+        col_ap = nprand.randint(0, self.shape[1])
+        col_bp = col_ap if self.same_col else nprand.randint(0, self.shape[1])
+        self.ap = (self.shape[0]-1, col_ap)
+        self.bp = (0, col_bp)
 
 if __name__ == "__main__":
-    grid_size = (3,11)
-    my_grid = GridWorld((3,11), 5)
-    plt.imshow(my_grid.get_state_rgb())
-    plt.show()
-    
-    tki = TimeKeeperIterator(timeunit=0.5*msec)
-    duration = 20000.0 * msec
+    game = DodgeWorld(same_col=False, reward_scheme=(1.0, -1.0, 0.0))
+    exposure = game.step_duration
+ 
+    input_rate = 64.0
 
-    inh_layer_params = ExLIFParams()
-    inh_layer_params.gbar_i = 20.0 * nsiem
-    inh_layer_params.tao_m = 50 * msec
+    tki = TimeKeeperIterator(timeunit=0.1*msec)
+    num_episodes = 500
 
-    exc_layer_params = ExLIFParams()
-    exc_layer_params.gbar_e = 10.0 * nsiem
-    exc_layer_params.tao_m = 100 * msec
+    exc_layer_params = LIFParams()
 
-    g1_obstacles = SensoryNeuralGroup(np.ones(grid_size[0] * grid_size[1], dtype=np.int), "obstacle_inputs", tki, exc_layer_params, field_shape=grid_size)
-    g1_meal = SensoryNeuralGroup(np.ones(grid_size[0] * grid_size[1], dtype=np.int), "meal_inputs", tki, exc_layer_params, field_shape=grid_size)
-    g1_agent = SensoryNeuralGroup(np.ones(grid_size[0] * grid_size[1], dtype=np.int), "agent_inputs", tki, exc_layer_params, field_shape=grid_size)
+    g1 = SensoryNeuralGroup(np.ones(2 * game.shape[1] - 1, dtype=np.int), "1", tki, exc_layer_params)
+    g2 = LIFNeuralGroup(np.ones(5, dtype=np.int), "2", tki, exc_layer_params)
+    g3 = LIFNeuralGroup(np.ones(3, dtype=np.int), "3", tki, exc_layer_params)
 
-    g2 = ExLIFNeuralGroup(np.ones(9, dtype=np.int), "al1", tki, exc_layer_params, field_shape=(1,9))
-    g2i = ExLIFNeuralGroup(np.zeros(9, dtype=np.int), "al1i", tki, inh_layer_params)
+    nn = NeuralNetwork([g1, g2, g3], "dodge ball player", tki)
+    lp = DASTDPParams()
+    lp.lr_pre = 0.001
+    lp.lr_post = 0.001
 
-    g3 = ExLIFNeuralGroup(np.ones(25, dtype=np.int), "al2", tki, exc_layer_params)
+    nn.fully_connect("1", "2", trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, s_type='da')
+    nn.fully_connect("2", "3", trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, s_type='da')
 
-    go = ExLIFNeuralGroup(np.ones(5, dtype=np.int), "go", tki, exc_layer_params)
-    nogo = ExLIFNeuralGroup(np.zeros(5, dtype=np.int), "nogo", tki, inh_layer_params)
+    last_exposure_step = 1
+    cummulative_spikes = np.zeros(g3.shape)
+    state = game.get_state()
+    i = 0
 
-    goi = ExLIFNeuralGroup(np.zeros(5, dtype=np.int), "goi", tki, inh_layer_params)
-    nogoi = ExLIFNeuralGroup(np.zeros(5, dtype=np.int), "nogoi", tki, inh_layer_params)
+    print(game.get_pixel_state())
+    scores = []
 
-    g5 = ExLIFNeuralGroup(np.ones(5, dtype=np.int), "action", tki, exc_layer_params)
-    g5i = ExLIFNeuralGroup(np.zeros(5, dtype=np.int), "actioni", tki, inh_layer_params)
-
-    dopamine_surge = SensoryNeuralGroup(np.ones(1, dtype=np.int), "dopamine_surge", tki, exc_layer_params)
-    dopamine_dip = SensoryNeuralGroup(np.ones(1, dtype=np.int), "dopamine_dip", tki, exc_layer_params)
-
-    hunger = SensoryNeuralGroup(np.ones(4, dtype=np.int), "hunger", tki, exc_layer_params)
-
-    g5.tracked_vars = ["spike"]
-
-    nn = NeuralNetwork([g1_obstacles, g1_meal, g1_agent, g2, g2i, g3, go, nogo, goi, nogoi, g5, g5i, dopamine_dip, dopamine_surge, hunger], "dopamine dingo", tki)
-
-    lp = STDPParams()
-    lp.lr = 0.005
-    lp.a2_minus = 8.0e-3
-    lp.a3_minus = 3e-4
-
-    patch1 = np.ones((3,3))
-    # nn.convolve_connect("obstacle_inputs", "al1", patch1, 0, 1, trainable=True, stdp_params=lp, minw=0.05, maxw=0.9)
-    # nn.convolve_connect("meal_inputs", "al1", patch1, 0, 1, trainable=True, stdp_params=lp, minw=0.05, maxw=0.9)
-    # nn.convolve_connect("agent_inputs", "al1", patch1, 0, 1, trainable=True, stdp_params=lp, minw=0.05, maxw=0.9)
-
-    nn.fully_connect("obstacle_inputs", "al1", trainable=True, stdp_params=lp, minw=0.05, maxw=0.2)
-    nn.fully_connect("meal_inputs", "al1", trainable=True, stdp_params=lp, minw=0.05, maxw=0.2)
-    nn.fully_connect("agent_inputs", "al1", trainable=True, stdp_params=lp, minw=0.05, maxw=0.9)
-
-    nn.one_to_one_connect("al1", "al1i", trainable=False, w_i=1.0)
-    nn.fully_connect("al1i", "al1", trainable=False, skip_one_to_one=True, w_i=1.0)
-
-    nn.fully_connect("al1", "al2", trainable=True, stdp_params=lp, minw=0.05, maxw=0.2)
-
-    nn.fully_connect("al2", "go", trainable=True, stdp_params=lp, minw=0.05, maxw=0.2)
-    nn.fully_connect("al2", "nogo", trainable=True, stdp_params=lp, minw=0.05, maxw=0.2)
-
-    nn.fully_connect("go", "action", trainable=True, stdp_params=lp, minw=0.05, maxw=0.2)
-    nn.fully_connect("nogo", "action", trainable=True, stdp_params=lp, minw=0.05, maxw=0.2)
-
-    nn.one_to_one_connect("go", "goi", trainable=False, w_i=1.0)
-    nn.fully_connect("goi", "go", trainable=False, w_i=0.0)
-
-    nn.one_to_one_connect("nogo", "nogoi", trainable=False, w_i=1.0)
-    nn.fully_connect("nogoi", "nogo", trainable=False, w_i=0.0)
-
-    nn.one_to_one_connect("action", "actioni", trainable=False, w_i=1.0)
-    nn.fully_connect("actioni", "action", trainable=False, w_i=0.0)
-
-    nn.fully_connect("dopamine_surge", "go", trainable=False, w_i=1.0)
-    nn.fully_connect("dopamine_dip", "nogo", trainable=False, w_i=1.0)
-    nn.fully_connect("hunger", "go", trainable=False, w_i=1.0)
-    # nn.fully_connect("dopamine_surge", "al1", trainable=False, w_i=1.0)
-    # nn.fully_connect("dopamine_dip", "al1i", trainable=False, w_i=1.0)
-
-    lts = 0
-    reward_type = 0
     for step in tki:
-        if (step - lts)*tki.dt() >= 50*msec:
-            if tki.tick_time() < 10000*msec:
-                reward_type,change = my_grid.move_agent(nprand.randint(0, 5))
-                print()
-                print("exploration move")
-                print()
-                g5.spike_track = []
-            else:
-                spikes = np.array(g5.spike_track)
-                rate = np.sum(spikes, axis=0) * 100.0 / np.sum(spikes)
-                action = np.argmax(rate)
-                if np.sum(spikes) == 0:
-                    action = 4
-                lts = step
-                reward_type, change = my_grid.move_agent(action)
-                g5.spike_track = []
-                print()
-                print(rate)
-                print(action)
-                
-                if change:
-                    plt.imshow(my_grid.get_state_rgb())
-                    plt.show()
+        if (step - last_exposure_step) * tki.dt() >= exposure * msec:
+            last_exposure_step = step
+            action = cummulative_spikes.argmax()
+            reward, state = game.step(action)
 
-                print()
+            if reward != 0.0:
+                nn.dopamine_puff(reward)
+                game.reset()
+                state = game.get_state()
+                i += 1
+                scores.append(reward)
 
-        
+            cummulative_spikes.fill(0)
 
-        # reward the network for 5 milliseconds 
-        if (step - lts)*tki.dt() >= 5*msec:
-            if reward_type == -1:
-                dopamine_dip.run(poisson_train(np.ones(1, dtype=np.float), tki.dt(), 100))
-                dopamine_surge.run(poisson_train(np.zeros(1, dtype=np.float), tki.dt(), 100))
-                hunger.run(poisson_train(nprand.random(4), tki.dt(), 100))
-            if reward_type == 1:
-                dopamine_dip.run(poisson_train(np.zeros(1, dtype=np.float), tki.dt(), 100))
-                dopamine_surge.run(poisson_train(np.ones(1, dtype=np.float), tki.dt(), 100))
-        else:
-            o, p, m = my_grid.get_state()
+            nn.reset()
+            print(game.get_pixel_state())
 
-            g1_obstacles.run(poisson_train(o, tki.dt(), 350))
-            g1_meal.run(poisson_train(m, tki.dt(), 350))
-            g1_agent.run(poisson_train(p, tki.dt(), 350))
-        
+        # inject spikes into sensory layer
+        g1.run(poisson_train(state, tki.dt(), input_rate))
+
         # run all layers
-        nn.run_order(["hunger", "obstacle_inputs", "meal_inputs", "agent_inputs", "al1", "al1i", "al2", "dopamine_surge", "dopamine_dip", "go", "nogo", "goi", "nogoi", "action", "actioni"])
+        nn.run_order(["1", "2", "3"])
+
+        cummulative_spikes += g3.spike_count
         
-        sys.stdout.write("Current simulation time: %g milliseconds\r" % (step * tki.dt() / msec))
+        sys.stdout.write("Current simulation time :: %.0f ms :: Num Spikes :: %g                  \r" % (step * tki.dt() / msec, cummulative_spikes.sum()))
 
-        if step >= duration/tki.dt():
+        if i == num_episodes:
             break
+    
+    print("\n\n")
+    nn.save_w("g1_g2.npy", '1', '2')
+    nn.save_w("g2_g3.npy", '2', '3')
+    plt.plot(scores)
+    plt.show()
+# if __name__ == "__main__":
+#     game = DodgeWorld(same_col=False, reward_scheme=(1.0, -1.0, 0.0))
+#     exposure = game.step_duration
+ 
+#     input_rate = 64.0
 
+#     tki = TimeKeeperIterator(timeunit=0.1*msec)
+#     num_episodes = 50
+
+#     exc_layer_params = LIFParams()
+
+#     g1 = SensoryNeuralGroup(np.ones(game.shape[0] * game.shape[1], dtype=np.int), "1", tki, exc_layer_params, field_shape=game.shape)
+#     g2 = LIFNeuralGroup(np.ones(5, dtype=np.int), "2", tki, exc_layer_params)
+#     g3 = LIFNeuralGroup(np.ones(3, dtype=np.int), "3", tki, exc_layer_params)
+
+#     nn = NeuralNetwork([g1, g2, g3], "dodge ball player", tki)
+#     lp = DASTDPParams()
+
+#     nn.fully_connect("1", "2", trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, s_type='da')
+#     nn.fully_connect("2", "3", trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, s_type='da')
+
+#     last_exposure_step = 1
+#     cummulative_spikes = np.zeros(g3.shape)
+#     state = game.get_pixel_state()
+#     i = 0
+
+#     print(state)
+
+#     for step in tki:
+#         if (step - last_exposure_step) * tki.dt() >= exposure * msec:
+#             last_exposure_step = step
+#             action = cummulative_spikes.argmax()
+#             reward, state = game.step(action)
+
+#             if reward != 0.0:
+#                 nn.dopamine_puff(reward)
+#                 game.reset()
+#                 state = game.get_pixel_state()
+#                 i += 1
+
+#             cummulative_spikes.fill(0)
+
+#             nn.reset()
+#             print(state)
+
+#         # inject spikes into sensory layer
+#         g1.run(poisson_train(state, tki.dt(), input_rate))
+
+#         # run all layers
+#         nn.run_order(["1", "2", "3"])
+
+#         cummulative_spikes += g3.spike_count
+        
+#         sys.stdout.write("Current simulation time :: %.0f ms :: Num Spikes :: %g                  \r" % (step * tki.dt() / msec, cummulative_spikes.sum()))
+
+#         if i == num_episodes:
+#             break
+    
+#     print("\n\n")
+#     nn.save_w("g1_g2.npy", '1', '2')
+#     nn.save_w("g2_g3.npy", '2', '3')
