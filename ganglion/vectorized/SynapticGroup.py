@@ -538,12 +538,10 @@ class TripletSTDPSynapticGroup(BaseSynapticGroup):
         # calculate new weights and stdp parameters based on firing locations
         if fire_time == 'pre':
             dw = self.stdp_o1[si,:] * (self.stdpp.a2_minus + self.stdpp.a3_minus * self.stdp_r2[si,:])
-            print(dw)
             
             self.w[si,:] = np.clip(self.w[si,:] - self.stdpp.lr * dw, 0.0, 1.0)
         elif fire_time == 'post':
             dw = self.stdp_r1[:,si] * (self.stdpp.a2_plus + self.stdpp.a3_plus * self.stdp_o2[:,si])
-            print(dw)
             
             self.w[:,si] = np.clip(self.w[:,si] + self.stdpp.lr * dw, 0.0, 1.0)
 
