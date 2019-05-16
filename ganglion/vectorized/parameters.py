@@ -61,30 +61,6 @@ class SynapseParams:
         self.tao_syn = 5.0 * msec  # this probably needs to be 10 msec
         self.spike_window = 20.0 * msec
 
-
-# class STDPParams:
-#     def __init__(self):
-#         # triplet STDP settings for visual cortex from Pfister and Gerstner (2006)
-#         self.lr = 0.000005
-#         self.a2_plus = 5.0e-10
-#         self.a3_plus = 6.2e-3
-#         self.a2_minus = 7.0e-3
-#         self.a3_minus = 2.3e-4
-#         self.tao_x = 101.0 * msec
-#         self.tao_y = 125.0 * msec
-#         self.tao_plus = 16.8 * msec
-#         self.tao_minus = 33.7 * msec
-
-#         # pair STDP settings
-#         self.stdp_tao_pre = 5.0 * msec
-#         self.stdp_tao_post = 5.0 * msec
-#         self.lr_pre = 0.05 #0.000005
-#         self.lr_post = 0.05 #0.000005
-#         self.post_multiplier = 0.6
-#         self.pre_multipler = -0.3
-
-#         # common settings
-#         self.stdp_window = 20.0 * msec
         
 class PairSTDPParams:
     def __init__(self):
