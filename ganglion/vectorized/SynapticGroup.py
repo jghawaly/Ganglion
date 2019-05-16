@@ -500,7 +500,7 @@ class TripletSTDPSynapticGroup(BaseSynapticGroup):
         if self.trainable:
             self.triplet_stdp(fired_neurons, 'pre') 
         
-        # icnrement triplet stdp tripley presynaptic trace
+        # icnrement triplet stdp triplet presynaptic trace
         self.stdp_r2[f, :] += 1
 
     def post_fire_notify(self, fired_neurons):
@@ -553,76 +553,76 @@ class DASTDPSynapticGroup(BaseSynapticGroup):
         # STDP parameters are default if None is given
         self.stdpp = DASTDPParams() if stdp_params is None else stdp_params 
 
-        # eligibility traces for LTP and LTD
-        self.ltp_trace = np.zeros(self.w.shape, dtype=np.float)
-        self.ltd_trace = np.zeros(self.w.shape, dtype=np.float)
+        # eligibility traces for pre-post and post-pre eligibility traces
+        self.ab_et = np.zeros(self.w.shape, dtype=np.float)
+        self.ba_et = np.zeros(self.w.shape, dtype=np.float)
 
-        # pair STDP parameters
-        self.stdp_pre = np.zeros((self.m, self.n), dtype=np.float)
-        self.stdp_post = np.zeros((self.m, self.n), dtype=np.float)
+        # spike traces for pre and post spikes
+        self.a_trace = np.zeros((self.m, self.n), dtype=np.float)
+        self.b_trace = np.zeros((self.m, self.n), dtype=np.float)
     
     def reset(self):
         """
         This is for resting the time-based parameters of the synaptic group.
         """
         self.history.fill(0)
-        self.stdp_pre.fill(0)
-        self.stdp_post.fill(0)
-        self.ltd_trace.fill(0)
-        self.ltp_trace.fill(0)
+        self.a_trace.fill(0)
+        self.b_trace.fill(0)
+        self.ab_et.fill(0)
+        self.ba_et.fill(0)
 
-    def pre_fire_notify(self, fired_neurons):
+    def pre_fire_notify(self, pre_count):
         """
         Notify this synaptic group of pre-synaptic neuron spikes. This is used for both updating the spike
         history and running pre-spike online STDP training
         """
-        f = np.where(fired_neurons>0.5)
+        f = np.where(pre_count>0.5)
 
         # increment presynaptic trace (standard stdp)
-        self.stdp_pre[f,:] += 1.0
+        self.a_trace[f,:] += 1.0
         
-        self.roll_history_and_assign(fired_neurons)
+        self.roll_history_and_assign(pre_count)
         
         if self.trainable:
-            self.update_eligibility(fired_neurons, 'pre') 
+            self.update_eligibility(pre_count, 'pre') 
 
-    def post_fire_notify(self, fired_neurons):
+    def post_fire_notify(self, pre_count):
         """
         Notify this synaptic group of post-synaptic neuron spikes. This is used for both updating the spike
         history and running post-spike online STDP training
         """
-        f = np.where(fired_neurons>0.5)
+        f = np.where(pre_count>0.5)
 
         # increment postsynaptic trace (standard stdp)
-        self.stdp_post[:,f] += 1.0
+        self.b_trace[:,f] += 1.0
 
         if self.trainable:
-            self.update_eligibility(fired_neurons, 'post')  
+            self.update_eligibility(pre_count, 'post')  
 
-    def update_eligibility(self, fired_neurons, fire_time):
+    def update_eligibility(self, pre_count, fire_time):
         """
         Updates the elibiility trace
         @param fired_neurons: The spike count array
         @param fire_time: 'pre' for presynaptic firing and 'post' for postsynaptic firing
         """
         # calculate change in STDP spike trace parameters using Euler's method
-        self.stdp_pre += -1.0 * self.tki.dt() * self.stdp_pre / self.stdpp.stdp_tao_pre
-        self.stdp_post += -1.0 * self.tki.dt() * self.stdp_post / self.stdpp.stdp_tao_post
+        self.a_trace += -1.0 * self.tki.dt() * self.a_trace / self.stdpp.a_tao
+        self.b_trace += -1.0 * self.tki.dt() * self.b_trace / self.stdpp.b_tao
 
         # calculate change in eligibility traces using Euler's method
-        self.ltd_trace += -1.0 * self.tki.dt() * self.ltd_trace / self.stdpp.tao_ltd
-        self.ltp_trace += -1.0 * self.tki.dt() * self.ltp_trace / self.stdpp.tao_ltp
+        self.ba_et += -1.0 * self.tki.dt() * self.ba_et / self.stdpp.ba_et_tao
+        self.ab_et += -1.0 * self.tki.dt() * self.ab_et / self.stdpp.ab_et_tao
 
         # find the indices where there were spikes
-        si = np.where(fired_neurons > 0)
+        si = np.where(pre_count > 0.5)
         
         # calculate new weights and stdp parameters based on firing locations
         if fire_time == 'pre':
-            # increment LTD eligibility trace
-            self.ltd_trace[si,:] += self.stdp_post[si,:]
+            # increment post-pre eligibility trace proportional to trace left by postsynaptic spikes
+            self.ba_et[si,:] += self.b_trace[si,:]
         elif fire_time == 'post':
-            # increment LTP eligibility trace
-            self.ltp_trace[:,si] += self.stdp_pre[:,si]
+            # increment pre-post eligibility trace proportional to trace left by presynaptic spikes
+            self.ab_et[:,si] += self.a_trace[:,si]
 
     def apply_dopamine(self, reward):
         """
@@ -630,13 +630,20 @@ class DASTDPSynapticGroup(BaseSynapticGroup):
 
         Note: If reward is negative, then STDP will become inversed
         """
-        # perform LTP based on reward
-        self.w += self.ltp_trace * self.stdpp.lr_post * self.stdpp.post_multiplier * reward
-        # perform LTD based on reward
-        self.w += self.ltd_trace * self.stdpp.lr_pre * self.stdpp.pre_multipler * reward
+        if reward >= 0.0:
+            ab_scale = self.stdpp.ab_scale_pos
+            ba_scale = self.stdpp.ba_scale_pos
+        else:
+            ab_scale = self.stdpp.ab_scale_neg
+            ba_scale = self.stdpp.ba_scale_neg
+        
+        # perform pre-post plasticity based on reward
+        self.w += self.ab_et * self.stdpp.lr * ab_scale * np.abs(reward)
+        # perform post-pre plasticity based on reward
+        self.w += self.ba_et * self.stdpp.lr * ba_scale * np.abs(reward)
         # make sure that weights stay in bounds
-        self.w = np.clip(self.w, 0.0, 1.0)
+        self.w = np.clip(self.w, 1.0e-5, 1.0)
 
         # reset eligibility traces
-        self.ltd_trace.fill(0)
-        self.ltp_trace.fill(0)
+        self.ab_et.fill(0)
+        self.ba_et.fill(0)

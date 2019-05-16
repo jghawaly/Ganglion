@@ -102,7 +102,6 @@ class PairSTDPParams:
 class TripletSTDPParams:
     def __init__(self):
         # triplet STDP settings for visual cortex from Pfister and Gerstner (2006)
-        self.lr = 0.000005
         self.a2_plus = 5.0e-10
         self.a3_plus = 6.2e-3
         self.a2_minus = 7.0e-3
@@ -112,11 +111,43 @@ class TripletSTDPParams:
         self.tao_plus = 16.8 * msec
         self.tao_minus = 33.7 * msec
 
-        # common settings
+        # triplet STDP settings for hippocampus from Pfister and Gerstner (2006)
+        self.a2_plus = 6.1e-3
+        self.a3_plus = 6.7e-3
+        self.a2_minus = 1.6e-3
+        self.a3_minus = 1.4e-3
+        self.tao_x = 946.0 * msec
+        self.tao_y = 27.0 * msec
+        self.tao_plus = 16.8 * msec
+        self.tao_minus = 33.7 * msec
+
+        # standard settings
+        self.lr = 0.000005
         self.stdp_window = 20.0 * msec
 
-class DASTDPParams(PairSTDPParams):
+class DASTDPParams():
     def __init__(self):
-        super().__init__()
-        self.tao_ltp = 7.21 * sec
-        self.tao_ltd = 3.61 * sec
+        # a -----> Pre-spike
+        # b -----> Post-spike
+
+        # global learning rate
+        self.lr = 0.04
+
+        # time constants of spike-trace decay
+        self.a_tao = 5.0 * msec
+        self.b_tao = 5.0 * msec
+
+        # time constants of eligbility traces
+        self.ab_et_tao = 7.21 * sec   
+        self.ba_et_tao = 3.61 * sec
+
+        # scaling factors for positive rewards
+        self.ab_scale_pos = 1.0
+        self.ba_scale_pos = -1.0
+
+        # scaling factors for negative rewards
+        self.ab_scale_neg = -1.0
+        self.ba_scale_neg = 1.0
+
+        # common settings
+        self.stdp_window = 20.0 * msec

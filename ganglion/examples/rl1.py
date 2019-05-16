@@ -13,7 +13,6 @@ import time
 import random
 import matplotlib.pyplot as plt
 import cv2
-import matplotlib.pyplot as plt
 
 
 """
@@ -98,10 +97,11 @@ class GridWorld:
         return state
 
 class DodgeWorld:
-    def __init__(self, grid_shape=(8, 4), speed=4.0, same_col=False, reward_scheme=(-1.0, 1.0, 0.0)):
+    def __init__(self, grid_shape=(8, 4), speed=4.0, same_col=False, reward_scheme=(-1.0, 1.0, 0.0, -1.0)):
         self.speed = speed
         self.step_duration = 1.0 / speed / msec
         self.shape = grid_shape
+        self.state_shape = (2 * self.shape[1] - 1 + self.shape[1])
         self.same_col = same_col
         self.reward_scheme = reward_scheme
 
@@ -118,13 +118,13 @@ class DodgeWorld:
             self.ap = (self.ap[0], self.ap[1]+1)
         else:
             pass
+        self.bp = (self.bp[0]+1, self.bp[1])
+
         
         if self.ap[1] == self.shape[1] or self.ap[1] < 0:
             self.ap = last_agent_position
-
-        self.bp = (self.bp[0]+1, self.bp[1])
-
-        if self.bp == self.ap:
+            reward = self.reward_scheme[3]
+        elif self.bp == self.ap:
             reward = self.reward_scheme[0]
         elif self.bp[0] == self.shape[0] - 1:
             reward = self.reward_scheme[1]
@@ -143,10 +143,11 @@ class DodgeWorld:
         return state
     
     def get_state(self):
-        state = np.zeros(2 * self.shape[1] - 1, dtype=np.float)
+        state = np.zeros(2 * self.shape[1] - 1 + self.shape[1], dtype=np.float)
         diff = self.ap[1] - self.bp[1]
 
         state[diff + self.shape[1] - 1] = 1.0
+        state[2 * self.shape[1] - 1 + self.ap[1]] = 1.0
 
         return state
     
@@ -157,24 +158,24 @@ class DodgeWorld:
         self.bp = (0, col_bp)
 
 if __name__ == "__main__":
-    game = DodgeWorld(same_col=False, reward_scheme=(1.0, -1.0, 0.0))
+    game = DodgeWorld(same_col=False, reward_scheme=(1.0, -0.01, 0.0, -0.01), grid_shape=(8, 3))
     exposure = game.step_duration
  
     input_rate = 64.0
 
-    tki = TimeKeeperIterator(timeunit=0.1*msec)
-    num_episodes = 500
+    tki = TimeKeeperIterator(timeunit=0.5*msec)
+    num_episodes = 10000
 
     exc_layer_params = LIFParams()
 
-    g1 = SensoryNeuralGroup(np.ones(2 * game.shape[1] - 1, dtype=np.int), "1", tki, exc_layer_params)
+    # g1 = SensoryNeuralGroup(np.ones(2 * game.shape[1] - 1 + game.shape[1], dtype=np.int), "1", tki, exc_layer_params)
+    g1 = SensoryNeuralGroup(np.ones(game.state_shape, dtype=np.int), "1", tki, exc_layer_params)
     g2 = LIFNeuralGroup(np.ones(5, dtype=np.int), "2", tki, exc_layer_params)
     g3 = LIFNeuralGroup(np.ones(3, dtype=np.int), "3", tki, exc_layer_params)
 
     nn = NeuralNetwork([g1, g2, g3], "dodge ball player", tki)
     lp = DASTDPParams()
-    lp.lr_pre = 0.001
-    lp.lr_post = 0.001
+    lp.lr = 0.01
 
     nn.fully_connect("1", "2", trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, s_type='da')
     nn.fully_connect("2", "3", trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, s_type='da')
@@ -186,27 +187,33 @@ if __name__ == "__main__":
 
     print(game.get_pixel_state())
     scores = []
+    ft_add = 0
 
     for step in tki:
         if (step - last_exposure_step) * tki.dt() >= exposure * msec:
             last_exposure_step = step
-            action = cummulative_spikes.argmax()
-            reward, state = game.step(action)
+            if cummulative_spikes.sum() > 0:
+                action = cummulative_spikes.argmax()
+                reward, state = game.step(action)
 
-            if reward != 0.0:
-                nn.dopamine_puff(reward)
-                game.reset()
-                state = game.get_state()
-                i += 1
-                scores.append(reward)
+                if reward != 0.0:
+                    nn.dopamine_puff(reward)
+                    game.reset()
+                    state = game.get_state()
+                    i += 1
+                    scores.append(reward)
 
-            cummulative_spikes.fill(0)
+                cummulative_spikes.fill(0)
 
-            nn.reset()
-            print(game.get_pixel_state())
+                nn.reset()
+                ft_add = 0
+                print(game.get_pixel_state())
+                
+            else:
+                ft_add += 5
 
         # inject spikes into sensory layer
-        g1.run(poisson_train(state, tki.dt(), input_rate))
+        g1.run(poisson_train(state, tki.dt(), input_rate + ft_add))
 
         # run all layers
         nn.run_order(["1", "2", "3"])

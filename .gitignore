@@ -5,5 +5,8 @@
 /ganglion/vectorized/__pycache__
 /ganglion/vectorized/testgroups.py
 /ganglion/examples/MNIST_data
+/ganglion/examples/*.npy
+/ganglion/examples/rl_xor.py
+/ganglion/examples/cart_pole.py
 /ganglion/examples/gabor.py
 /ganglion/vectorized/MNIST_data
