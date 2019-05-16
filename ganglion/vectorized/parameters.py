@@ -66,7 +66,7 @@ class PairSTDPParams:
     def __init__(self):
         # a -----> Pre-spike
         # b -----> Post-spike
-        
+
         # pair STDP settings
         self.a_tao = 5.0 * msec
         self.b_tao = 5.0 * msec
@@ -78,26 +78,31 @@ class PairSTDPParams:
         self.stdp_window = 20.0 * msec
 
 class TripletSTDPParams:
-    def __init__(self):
-        # triplet STDP settings for visual cortex from Pfister and Gerstner (2006)
-        # self.a2_plus = 5.0e-10
-        # self.a3_plus = 6.2e-3
-        # self.a2_minus = 7.0e-3
-        # self.a3_minus = 2.3e-4
-        # self.tao_x = 101.0 * msec
-        # self.tao_y = 125.0 * msec
-        # self.tao_plus = 16.8 * msec
-        # self.tao_minus = 33.7 * msec
-
-        # triplet STDP settings for hippocampus from Pfister and Gerstner (2006)
-        self.a2_plus = 6.1e-3
-        self.a3_plus = 6.7e-3
-        self.a2_minus = 1.6e-3
-        self.a3_minus = 1.4e-3
-        self.tao_x = 946.0 * msec
-        self.tao_y = 27.0 * msec
-        self.tao_plus = 16.8 * msec
-        self.tao_minus = 33.7 * msec
+    visual_cortex = 0
+    hippocampus = 1
+    def __init__(self, model=1):
+        if model == self.__class__.visual_cortex:
+            # triplet STDP settings for visual cortex from Pfister and Gerstner (2006)
+            self.a2_plus = 5.0e-10
+            self.a3_plus = 6.2e-3
+            self.a2_minus = 7.0e-3
+            self.a3_minus = 2.3e-4
+            self.tao_x = 101.0 * msec
+            self.tao_y = 125.0 * msec
+            self.tao_plus = 16.8 * msec
+            self.tao_minus = 33.7 * msec
+        elif model == self.__class__.hippocampus:
+            # triplet STDP settings for hippocampus from Pfister and Gerstner (2006)
+            self.a2_plus = 6.1e-3
+            self.a3_plus = 6.7e-3
+            self.a2_minus = 1.6e-3
+            self.a3_minus = 1.4e-3
+            self.tao_x = 946.0 * msec
+            self.tao_y = 27.0 * msec
+            self.tao_plus = 16.8 * msec
+            self.tao_minus = 33.7 * msec
+        else:
+            raise RuntimeError("An attempt was made to instantiate the TripletSTDPParams class with an invalid value for the model parameter.")
 
         # standard settings
         self.lr = 0.05
