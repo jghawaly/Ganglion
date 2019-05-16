@@ -171,64 +171,64 @@ class PairSTDPSynapticGroup(BaseSynapticGroup):
         self.stdpp = PairSTDPParams() if stdp_params is None else stdp_params
 
         # pair STDP parameters
-        self.stdp_pre = np.zeros(self.w.shape, dtype=np.float)
-        self.stdp_post = np.zeros(self.w.shape, dtype=np.float)
+        self.a_trace = np.zeros(self.w.shape, dtype=np.float)
+        self.b_trace = np.zeros(self.w.shape, dtype=np.float)
     
     def reset(self):
         """
         This is for resting the time-based parameters of the synaptic group.
         """
         self.history.fill(0)
-        self.stdp_pre.fill(0)
-        self.stdp_post.fill(0)
+        self.a_trace.fill(0)
+        self.b_trace.fill(0)
 
-    def pre_fire_notify(self, fired_neurons):
+    def pre_fire_notify(self, pre_count):
         """
         Notify this synaptic group of pre-synaptic neuron spikes. This is used for both updating the spike
         history and running pre-spike online STDP training
         """
-        f = np.where(fired_neurons>0.5)
+        f = np.where(pre_count>0.5)
 
         # increment presynaptic trace (standard stdp)
-        self.stdp_pre[f,:] += 1.0
+        self.a_trace[f,:] += 1.0
         
-        self.roll_history_and_assign(fired_neurons)
+        self.roll_history_and_assign(pre_count)
         if self.trainable:
-            self.pair_stdp(fired_neurons, 'pre') 
+            self.pair_stdp(pre_count, 'pre') 
 
-    def post_fire_notify(self, fired_neurons):
+    def post_fire_notify(self, post_count):
         """
         Notify this synaptic group of post-synaptic neuron spikes. This is used for both updating the spike
         history and running post-spike online STDP training
         """
-        f = np.where(fired_neurons>0.5)
+        f = np.where(post_count>0.5)
 
         # increment postsynaptic trace (standard stdp)
-        self.stdp_post[:,f] += 1.0
+        self.b_trace[:,f] += 1.0
 
         if self.trainable:
-            self.pair_stdp(fired_neurons, 'post')  
+            self.pair_stdp(post_count, 'post')  
 
-    def pair_stdp(self, fired_neurons, fire_time):
+    def pair_stdp(self, fire_count, fire_time):
         """
         Runs online standard STDP algorithm with multiplicative weight dependence
         @param fired_neurons: The spike count array
         @param fire_time: 'pre' for presynaptic firing and 'post' for postsynaptic firing
         """
         # calculate change in STDP spike trace parameters using Euler's method
-        self.stdp_pre += -1.0 * self.tki.dt() * self.stdp_pre / self.stdpp.stdp_tao_pre
-        self.stdp_post += -1.0 * self.tki.dt() * self.stdp_post / self.stdpp.stdp_tao_post
+        self.a_trace += -1.0 * self.tki.dt() * self.a_trace / self.stdpp.a_tao
+        self.b_trace += -1.0 * self.tki.dt() * self.b_trace / self.stdpp.b_tao
 
         # find the indices where there were spikes
-        si = np.where(fired_neurons > 0)
+        si = np.where(fire_count > 0)
         
         # calculate new weights and stdp parameters based on firing locations
         if fire_time == 'pre':
             # apply weight change, as a function of the postsynaptic trace
-            self.w[si,:] += self.stdpp.pre_multipler * self.stdpp.lr * self.w[si,:] * self.stdp_post[si,:]
+            self.w[si,:] += self.stdpp.ba_scale * self.stdpp.lr * self.w[si,:] * self.b_trace[si,:]
         elif fire_time == 'post':
             # apply weight change, as a function of the presynaptic trace
-            self.w[:,si] += self.stdpp.post_multiplier * self.stdpp.lr * (1.0 - self.w[:,si]) * self.stdp_pre[:,si]
+            self.w[:,si] += self.stdpp.ab_scale * self.stdpp.lr * (1.0 - self.w[:,si]) * self.a_trace[:,si]
 
 
 class TripletSTDPSynapticGroup(BaseSynapticGroup):

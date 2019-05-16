@@ -64,11 +64,14 @@ class SynapseParams:
         
 class PairSTDPParams:
     def __init__(self):
+        # a -----> Pre-spike
+        # b -----> Post-spike
+        
         # pair STDP settings
-        self.stdp_tao_pre = 5.0 * msec
-        self.stdp_tao_post = 5.0 * msec
-        self.post_multiplier = 0.6
-        self.pre_multipler = -0.3
+        self.a_tao = 5.0 * msec
+        self.b_tao = 5.0 * msec
+        self.ab_scale = 0.6
+        self.ba_scale = -0.3
 
         # standard settings
         self.lr = 0.05
