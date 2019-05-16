@@ -72,11 +72,11 @@ for step in tki:
 end_time = time.time()
 tsc = np.sum(g3.isyn_track)
 
-if 0.00012 > tsc > 0.00010:
+if 0.00077 > tsc > 0.00076:
     test = "PASSED"
 else:
     test = "FAILED"
-print("Test  ::  %s  ::  Total synaptic current  ::  %g  ::  Expected synaptic current  ::  %s  ::  Execution Time  ::  %g seconds" % (test, np.sum(g3.isyn_track), "0.000117508", end_time-start_time))
+print("Test  ::  %s  ::  Total synaptic current  ::  %g  ::  Expected synaptic current  ::  %s  ::  Execution Time  ::  %g seconds" % (test, np.sum(g3.isyn_track), "0.000765634", end_time-start_time))
 
 # -------------------------------------------------------------------------------------------------------
 
@@ -107,10 +107,10 @@ for step in tki:
 end_time = time.time()
 tsc = np.sum(g3.isyn_track)
 
-if 0.00012 > tsc > 0.00010:
+if 8.71e-07 > tsc > 8.7e-07:
     test = "PASSED"
 else:
     test = "FAILED"
-print("Test  ::  %s  ::  Total synaptic current  ::  %g  ::  Expected synaptic current  ::  %s  ::  Execution Time  ::  %g seconds" % (test, np.sum(g3.isyn_track), "0.000117508", end_time-start_time))
+print("Test  ::  %s  ::  Total synaptic current  ::  %g  ::  Expected synaptic current  ::  %s  ::  Execution Time  ::  %g seconds" % (test, np.sum(g3.isyn_track), "8.70839e-07", end_time-start_time))
 
 # -------------------------------------------------------------------------------------------------------

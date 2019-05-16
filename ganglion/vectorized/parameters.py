@@ -91,25 +91,24 @@ class PairSTDPParams:
         # pair STDP settings
         self.stdp_tao_pre = 5.0 * msec
         self.stdp_tao_post = 5.0 * msec
-        self.lr_pre = 0.05 #0.000005
-        self.lr_post = 0.05 #0.000005
         self.post_multiplier = 0.6
         self.pre_multipler = -0.3
 
-        # common settings
+        # standard settings
+        self.lr = 0.05
         self.stdp_window = 20.0 * msec
 
 class TripletSTDPParams:
     def __init__(self):
         # triplet STDP settings for visual cortex from Pfister and Gerstner (2006)
-        self.a2_plus = 5.0e-10
-        self.a3_plus = 6.2e-3
-        self.a2_minus = 7.0e-3
-        self.a3_minus = 2.3e-4
-        self.tao_x = 101.0 * msec
-        self.tao_y = 125.0 * msec
-        self.tao_plus = 16.8 * msec
-        self.tao_minus = 33.7 * msec
+        # self.a2_plus = 5.0e-10
+        # self.a3_plus = 6.2e-3
+        # self.a2_minus = 7.0e-3
+        # self.a3_minus = 2.3e-4
+        # self.tao_x = 101.0 * msec
+        # self.tao_y = 125.0 * msec
+        # self.tao_plus = 16.8 * msec
+        # self.tao_minus = 33.7 * msec
 
         # triplet STDP settings for hippocampus from Pfister and Gerstner (2006)
         self.a2_plus = 6.1e-3
@@ -122,7 +121,7 @@ class TripletSTDPParams:
         self.tao_minus = 33.7 * msec
 
         # standard settings
-        self.lr = 0.000005
+        self.lr = 0.05
         self.stdp_window = 20.0 * msec
 
 class DASTDPParams():
@@ -131,7 +130,7 @@ class DASTDPParams():
         # b -----> Post-spike
 
         # global learning rate
-        self.lr = 0.04
+        self.lr = 0.05
 
         # time constants of spike-trace decay
         self.a_tao = 5.0 * msec

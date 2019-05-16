@@ -108,8 +108,7 @@ if __name__ == "__main__":
 
     nn = NeuralNetwork([g1, g2, g3], "bar_learner", tki)
     lp = stdp_params()
-    if args.stdp == 'triplet':
-        lp.lr = 0.05
+    lp.lr = 0.05
 
     nn.fully_connect("inputs", "exc", trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, s_type=args.stdp)
     nn.one_to_one_connect("exc", "inh_lateral", w_i=1.0, trainable=False)

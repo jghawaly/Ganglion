@@ -403,8 +403,8 @@ class PairSTDPSynapticGroup(BaseSynapticGroup):
         self.stdpp = PairSTDPParams() if stdp_params is None else stdp_params
 
         # pair STDP parameters
-        self.stdp_pre = np.zeros((self.m, self.n), dtype=np.float)
-        self.stdp_post = np.zeros((self.m, self.n), dtype=np.float)
+        self.stdp_pre = np.zeros(self.w.shape, dtype=np.float)
+        self.stdp_post = np.zeros(self.w.shape, dtype=np.float)
     
     def reset(self):
         """
@@ -457,10 +457,10 @@ class PairSTDPSynapticGroup(BaseSynapticGroup):
         # calculate new weights and stdp parameters based on firing locations
         if fire_time == 'pre':
             # apply weight change, as a function of the postsynaptic trace
-            self.w[si,:] += self.stdpp.pre_multipler * self.stdpp.lr_pre * self.w[si,:] * self.stdp_post[si,:]
+            self.w[si,:] += self.stdpp.pre_multipler * self.stdpp.lr * self.w[si,:] * self.stdp_post[si,:]
         elif fire_time == 'post':
             # apply weight change, as a function of the presynaptic trace
-            self.w[:,si] += self.stdpp.post_multiplier * self.stdpp.lr_post * (1.0 - self.w[:,si]) * self.stdp_pre[:,si]
+            self.w[:,si] += self.stdpp.post_multiplier * self.stdpp.lr * (1.0 - self.w[:,si]) * self.stdp_pre[:,si]
 
 
 class TripletSTDPSynapticGroup(BaseSynapticGroup):
@@ -471,10 +471,10 @@ class TripletSTDPSynapticGroup(BaseSynapticGroup):
         self.stdpp = TripletSTDPParams() if stdp_params is None else stdp_params 
 
         # triplet STDP parameters 
-        self.stdp_r1 = np.zeros((self.m, self.n), dtype=np.float)
-        self.stdp_r2 = np.zeros((self.m, self.n), dtype=np.float)
-        self.stdp_o1 = np.zeros((self.m, self.n), dtype=np.float)
-        self.stdp_o2 = np.zeros((self.m, self.n), dtype=np.float)
+        self.stdp_r1 = np.zeros(self.w.shape, dtype=np.float)
+        self.stdp_r2 = np.zeros(self.w.shape, dtype=np.float)
+        self.stdp_o1 = np.zeros(self.w.shape, dtype=np.float)
+        self.stdp_o2 = np.zeros(self.w.shape, dtype=np.float)
     
     def reset(self):
         """
@@ -553,13 +553,13 @@ class DASTDPSynapticGroup(BaseSynapticGroup):
         # STDP parameters are default if None is given
         self.stdpp = DASTDPParams() if stdp_params is None else stdp_params 
 
-        # eligibility traces for pre-post and post-pre eligibility traces
+        # eligibility traces for pre-post and post-pre spike pairs
         self.ab_et = np.zeros(self.w.shape, dtype=np.float)
         self.ba_et = np.zeros(self.w.shape, dtype=np.float)
 
         # spike traces for pre and post spikes
-        self.a_trace = np.zeros((self.m, self.n), dtype=np.float)
-        self.b_trace = np.zeros((self.m, self.n), dtype=np.float)
+        self.a_trace = np.zeros(self.w.shape, dtype=np.float)
+        self.b_trace = np.zeros(self.w.shape, dtype=np.float)
     
     def reset(self):
         """
