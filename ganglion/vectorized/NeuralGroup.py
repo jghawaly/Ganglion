@@ -66,8 +66,8 @@ class NeuralGroup:
 
         This method should be overridden
         """
-        self.pre_update()
-        self.update()
+        self.pre_update(None)
+        self.update(None)
         return self.post_update()
 
     def reset(self):
@@ -338,7 +338,7 @@ class FTLIFNeuralGroup(LIFNeuralGroup):
 
         # update floating threshold for each neuron that fired
         self.ft[self.spiked] += self.ft_add
-    
+
 
 class AdExNeuralGroup(ExLIFNeuralGroup):
     """

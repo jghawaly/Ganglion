@@ -367,10 +367,10 @@ class DASTDPSynapticGroup(BaseSynapticGroup):
         if self.trainable:
             self.update_eligibility(pre_count, 'post')  
 
-    def update_eligibility(self, pre_count, fire_time):
+    def update_eligibility(self, fire_count, fire_time):
         """
         Updates the elibiility trace
-        @param fired_neurons: The spike count array
+        @param fire_count: The spike count array
         @param fire_time: 'pre' for presynaptic firing and 'post' for postsynaptic firing
         """
         # calculate change in STDP spike trace parameters using Euler's method
@@ -378,11 +378,11 @@ class DASTDPSynapticGroup(BaseSynapticGroup):
         self.b_trace += -1.0 * self.tki.dt() * self.b_trace / self.stdpp.b_tao
 
         # calculate change in eligibility traces using Euler's method
-        self.ba_et += -1.0 * self.tki.dt() * self.ba_et / self.stdpp.ba_et_tao
         self.ab_et += -1.0 * self.tki.dt() * self.ab_et / self.stdpp.ab_et_tao
+        self.ba_et += -1.0 * self.tki.dt() * self.ba_et / self.stdpp.ba_et_tao
 
         # find the indices where there were spikes
-        si = np.where(pre_count > 0.5)
+        si = np.where(fire_count > 0.5)
         
         # calculate new weights and stdp parameters based on firing locations
         if fire_time == 'pre':
@@ -392,7 +392,7 @@ class DASTDPSynapticGroup(BaseSynapticGroup):
             # increment pre-post eligibility trace proportional to trace left by presynaptic spikes
             self.ab_et[:,si] += self.a_trace[:,si]
 
-    def apply_dopamine(self, reward):
+    def apply_dopamine(self, reward, actions=None):
         """
         Apply weight changes based on eligibility traces and reward
 
@@ -404,11 +404,12 @@ class DASTDPSynapticGroup(BaseSynapticGroup):
         else:
             ab_scale = self.stdpp.ab_scale_neg
             ba_scale = self.stdpp.ba_scale_neg
-        
+        # print(self.w)
         # perform pre-post plasticity based on reward
         self.w += self.ab_et * self.stdpp.lr * ab_scale * np.abs(reward)
         # perform post-pre plasticity based on reward
         self.w += self.ba_et * self.stdpp.lr * ba_scale * np.abs(reward)
+        
         # make sure that weights stay in bounds
         self.w = np.clip(self.w, 1.0e-5, 1.0)
 
