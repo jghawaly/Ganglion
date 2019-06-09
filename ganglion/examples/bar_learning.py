@@ -62,7 +62,7 @@ if __name__ == "__main__":
     parser.add_argument('--input_rate', type=float, default=64.0, help='maximum firing rate of input sensory neurons (Hz)')
     parser.add_argument('--grid_size', type=int, default=16, help='length and width of square grid that bars are generated on')
     parser.add_argument('--stdp', type=str, default='pair', help='form of stdp to use, can be pair or triplet')
-    parser.add_argument('--target_frequency', type=float, default=20, help='target frequency in Hz of neuron (only applicable to HSLIF neurons.')
+    parser.add_argument('--target_frequency', type=float, default=2, help='target frequency in Hz of neuron (only applicable to HSLIF neurons.')
 
     args = parser.parse_args()
     tki = TimeKeeperIterator(timeunit=args.increment*msec)
@@ -70,45 +70,51 @@ if __name__ == "__main__":
 
     if args.model == 'if':
         model = IFNeuralGroup
-        params = IFParams()
+        e_params = IFParams()
+        i_params = IFParams()
     elif args.model == 'lif':
         model = LIFNeuralGroup
-        params = LIFParams()
+        e_params = LIFParams()
+        i_params = LIFParams()
     elif args.model == 'ftlif':
         model = FTLIFNeuralGroup
-        params = FTLIFParams()
+        e_params = FTLIFParams()
+        i_params = FTLIFParams()
     elif args.model == 'exlif':
         model = ExLIFNeuralGroup
-        params = ExLIFParams()
+        e_params = ExLIFParams()
+        i_params = ExLIFParams()
     elif args.model == 'adex':
         model = AdExNeuralGroup
-        params = AdExParams()
+        e_params = AdExParams()
+        i_params = AdExParams()
     elif args.model == 'hslif':
         model = HSLIFNeuralGroup
-        params = HSLIFParams()
-        params.phi = calculate_phi(args.target_frequency, tki)
+        e_params = HSLIFParams()
+        i_params = HSLIFParams()
+        # set phi
+        e_params.phi = calculate_phi(args.target_frequency, tki)
+        i_params.phi = e_params.phi
     else:
         raise RuntimeError("%s is not a valid neuron model, must be if, lif, ftlif, exlif, adex, or hslif." % args.model)
     
     if args.stdp == 'pair':
-        stdp_params = PairSTDPParams
+        stdp_params = PairSTDPParams()
     elif args.stdp == 'triplet':
-        stdp_params = TripletSTDPParams
+        stdp_params = TripletSTDPParams()
     else:
         raise RuntimeError("%s is not a valid stdp model, must be pair or triplet." % args.stdp)
 
     start = time.time()
+    i_params.v_thr = -60.0 * mvolt
 
-    # exc_layer_params.gbar_e = 10.0 * nsiem
-    # inhib_layer_params.gbar_i = 20.0 * nsiem
-    # exc_layer_params.tao_m = 40 * msec
 
-    g1 = SensoryNeuralGroup(1, args.grid_size * args.grid_size, "inputs", tki, params, field_shape=(args.grid_size, args.grid_size))
-    g2 = model(1, 16, "exc", tki, params, field_shape=(4,4))
-    g3 = model(0, 16, "inh_lateral", tki, params, field_shape=(4,4))
+    g1 = SensoryNeuralGroup(1, args.grid_size * args.grid_size, "inputs", tki, e_params, field_shape=(args.grid_size, args.grid_size))
+    g2 = model(1, 16, "exc", tki, e_params, field_shape=(4,4))
+    g3 = LIFNeuralGroup(0, 16, "inh_lateral", tki, i_params, field_shape=(4,4))
 
     nn = NeuralNetwork([g1, g2, g3], "bar_learner", tki)
-    lp = stdp_params()
+    lp = stdp_params
     lp.lr = 0.05
 
     nn.fully_connect("inputs", "exc", trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, s_type=args.stdp)
@@ -128,7 +134,7 @@ if __name__ == "__main__":
                 last_exposure_step = step
                 d = genbar(args.grid_size, args.grid_size)
                 nn.reset()
-                # nn.normalize_weights()
+                nn.normalize_weights()
          
         # inject spikes into sensory layer
         g1.run(poisson_train(d, tki.dt(), args.input_rate + f_add))
@@ -150,6 +156,6 @@ if __name__ == "__main__":
     plt.imshow(img)
     plt.title("Post-training weight matrix")
     plt.colorbar()
-    plt.clim(0, 1)
+    plt.clim(0, img.max())
     plt.show()
     # -------------------------------------------------------
