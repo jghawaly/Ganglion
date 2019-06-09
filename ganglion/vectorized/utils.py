@@ -50,3 +50,12 @@ def save_img(path, image, normalize=False):
         image = cv2.normalize(image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
     
     cv2.imwrite(path, image)
+
+
+def calculate_phi(f, tki):
+    """
+    Calculate phi for homeostatic neuron
+    @param f: desired spike frequency in Hz
+    @param tki: time keeper iterator instace
+    """
+    return tki.dt() * f

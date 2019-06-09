@@ -1,32 +1,25 @@
 import numpy as np
 from timekeeper import TimeKeeperIterator
-from parameters import AdExParams, LIFParams, ExLIFParams, FTLIFParams, IFParams
+from parameters import AdExParams, LIFParams, ExLIFParams, FTLIFParams, IFParams, HSLIFParams
 from units import *
 import random
 import tensorflow as tf
 
+inhibitory = 0
+excitatory = 1
 
 class NeuralGroup:
     """
     This class is a base template containing only items that are common among most neuron models. It 
     should be overriden, and does not run on its own.
     """
-    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, field_shape=None):
+    def __init__(self, n_type: int, num: int, name: str, tki: TimeKeeperIterator, field_shape=None):
         self.name = name  # the name of this neuron
         self.tki = tki  # the timekeeper isntance that is shared amongst the entire network
         
-        # calculate the area of the neural group's geometry
-        try:
-            area = n_type.shape[0] * n_type.shape[1]
-        except IndexError:
-            area = n_type.shape[0]
-        
-        # this holds the given neuron identity array, and also defines the geometry of the group.
-        # 0's represent the location of inhibitory neurons and 1's represent the location of excitatory neurons
-        self.n_type = n_type  
-        self.shape = n_type.shape  # shape/geometry of this neural group
-        self.num_excitatory = np.count_nonzero(n_type)  # number of excitatory neurons in this group
-        self.num_inhibitory = area - np.count_nonzero(n_type)  # number of inhibitory neurons in this group
+        self.n_type = n_type  # type of neurons in this group (excitatory or inhibitory)
+        self.n_num = num  # number of neurons in this group
+        self.shape = (self.n_num)  # shape/geometry of this neural group
         self.tracked_vars = []  # variables to be tracked throughout the course of evaluation
 
         # define the virtual shape of the neural group
@@ -79,21 +72,17 @@ class SensoryNeuralGroup(NeuralGroup):
     This class defines a group of "neurons" that are not really neurons, they simply send "spikes"
     when the user tells them too
     """
-    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: IFParams, field_shape=None):
-        super().__init__(n_type, name, tki, field_shape=field_shape)
+    def __init__(self, n_type: int, num: int, name: str, tki: TimeKeeperIterator, params: IFParams, field_shape=None):
+        super().__init__(n_type, num, name, tki, field_shape=field_shape)
 
         self.spike_count = np.zeros(self.shape, dtype=np.int)  # holds the NUMBER OF spikes that occured in the last evaluated time window
         self.v_spike = np.full(self.shape, params.v_spike)  # spike potential
 
         # construct reversal potential matrix
-        self.v_rev = np.zeros(n_type.shape, dtype=np.float)
-        self.v_rev[np.where(self.n_type==0)] = params.vrev_i
-        self.v_rev[np.where(self.n_type==1)] = params.vrev_e
+        self.v_rev = np.full(self.shape, params.vrev_e if self.n_type == excitatory else params.vrev_i, dtype=np.float)
 
         # construct gbar matrix
-        self.gbar = np.zeros(n_type.shape, dtype=np.float)
-        self.gbar[np.where(self.n_type==0)] = params.gbar_i
-        self.gbar[np.where(self.n_type==1)] = params.gbar_e
+        self.gbar = np.full(self.shape, params.gbar_e if self.n_type == excitatory else params.gbar_i, dtype=np.float)
 
         # lists that will contain the membrane voltage track
         self.v_m_track = []
@@ -131,8 +120,8 @@ class IFNeuralGroup(NeuralGroup):
     """
     This class defines a group of Integrate and Fire Neurons
     """
-    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: IFParams, field_shape=None):
-        super().__init__(n_type, name, tki, field_shape=field_shape)
+    def __init__(self, n_type: int, num: int, name: str, tki: TimeKeeperIterator, params: IFParams, field_shape=None):
+        super().__init__(n_type, num, name, tki, field_shape=field_shape)
         # custom parameters
         self.refractory_period = np.full(self.shape, params.refractory_period)  # refractory period for these neurons
         self.spiked = np.zeros(self.shape, dtype=np.int)  # holds boolean array of WHETHER OR NOT a spike occured in the last call to run() (Note: NOT THE LAST TIME STEP)
@@ -141,16 +130,12 @@ class IFNeuralGroup(NeuralGroup):
         self.last_spike_count_update = 0.0  # holds the time at which the spike count array was last updated
 
         # construct reversal potential matrix
-        self.v_rev = np.zeros(n_type.shape, dtype=np.float)  # reversal potential for any outgoing synapses from these neurons
-        self.v_rev[np.where(self.n_type==0)] = params.vrev_i
-        self.v_rev[np.where(self.n_type==1)] = params.vrev_e
+        self.v_rev = np.full(self.shape, params.vrev_e if self.n_type == excitatory else params.vrev_i, dtype=np.float)
         self.vrev_i = np.full(self.shape, params.vrev_i)
         self.vrev_e = np.full(self.shape, params.vrev_e)
 
         # construct gbar matrix
-        self.gbar = np.zeros(n_type.shape, dtype=np.float)  # conductance of any outgoing synapses from these neurons
-        self.gbar[np.where(self.n_type==0)] = params.gbar_i 
-        self.gbar[np.where(self.n_type==1)] = params.gbar_e
+        self.gbar = np.full(self.shape, params.gbar_e if self.n_type == excitatory else params.gbar_i, dtype=np.float)
 
         # Parameters from Brette and Gerstner (2005).
         self.v_r = np.full(self.shape, params.v_r)  # rest potential
@@ -161,6 +146,7 @@ class IFNeuralGroup(NeuralGroup):
 
         # parameter tracks
         self.v_m_track = []
+        self.v_thr_track = []
         self.isyn_track = []
         self.spike_track = []
 
@@ -214,6 +200,8 @@ class IFNeuralGroup(NeuralGroup):
             self.isyn_track.append(i_syn)
         if "spike" in self.tracked_vars:
             self.spike_track.append(self.spike_count.copy())
+        if "v_thr" in self.tracked_vars:
+            self.v_thr_track.append(self.v_thr)
 
     def post_update(self, i_syn):
         # add a new spike to the spike count for each neuron that fired
@@ -228,7 +216,7 @@ class IFNeuralGroup(NeuralGroup):
         # To try and "patch" this, we force the neurons that went too low to the reversal potential, which is the theoretical minimum membrane potential that the
         # neuron can have
         hp = np.where(self.v_m < self.vrev_i)
-        self.v_m[hp] =self.vrev_i[hp]
+        self.v_m[hp] = self.vrev_i[hp]
 
         # change the actual membrane voltage to the resting potential for each neuron that fired
         self.v_m[self.spiked] = self.v_r[self.spiked]
@@ -249,8 +237,8 @@ class LIFNeuralGroup(IFNeuralGroup):
     """
     This class defines a group of Leaky Integrate and Fire Neurons
     """
-    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: LIFParams, field_shape=None, forced_wta=None):
-        super().__init__(n_type, name, tki, params=params, field_shape=field_shape)
+    def __init__(self, n_type: int, num: int, name: str, tki: TimeKeeperIterator, params: LIFParams, field_shape=None, forced_wta=None):
+        super().__init__(n_type, num, name, tki, params=params, field_shape=field_shape)
         # Parameters from Brette and Gerstner (2005).
         self.tao_m = np.full(self.shape, params.tao_m)  # membrane time constant
     
@@ -271,8 +259,8 @@ class ExLIFNeuralGroup(LIFNeuralGroup):
     """
     This class defines a group of Leaky Integrate and Fire Neurons
     """
-    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: ExLIFParams, field_shape=None):
-        super().__init__(n_type, name, tki, params=params, field_shape=field_shape)
+    def __init__(self, n_type: int, num: int, name: str, tki: TimeKeeperIterator, params: ExLIFParams, field_shape=None):
+        super().__init__(n_type, num, name, tki, params=params, field_shape=field_shape)
 
         # custom parameters
         self.sf = np.full(self.shape, params.sf)  # slope factor for exponential activation nonlinearity term
@@ -294,8 +282,8 @@ class FTLIFNeuralGroup(LIFNeuralGroup):
     """
     This class defines a group of Leaky Integrate and Fire Neurons with a floating threshold that acts as a firing-rate adaptation parameter
     """
-    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: FTLIFParams, field_shape=None, forced_wta=False):
-        super().__init__(n_type, name, tki, params=params, field_shape=field_shape)
+    def __init__(self, n_type: int, num: int, name: str, tki: TimeKeeperIterator, params: FTLIFParams, field_shape=None, forced_wta=False):
+        super().__init__(n_type, num, name, tki, params=params, field_shape=field_shape)
 
         # custom parameters
         self.tao_ft = params.tao_ft  # time constant of floating threshold decay
@@ -340,13 +328,52 @@ class FTLIFNeuralGroup(LIFNeuralGroup):
         self.ft[self.spiked] += self.ft_add
 
 
+class HSLIFNeuralGroup(LIFNeuralGroup):
+    """
+    This class defines a group of Leaky Integrate and Fire Neurons with Homeostasis that acts to regulate the firing threshold of the neuron in order to maintain 
+    the average firing rate within a user-defined window.
+    """
+    def __init__(self, n_type: int, num: int, name: str, tki: TimeKeeperIterator, params: HSLIFParams, field_shape=None):
+        super().__init__(n_type, num, name, tki, params=params, field_shape=field_shape)
+
+        # custom parameters
+        self.nip = params.nip
+        self.phi = np.full(self.shape, params.phi)
+    
+    def update(self, i_syn):
+        # mask of neurons not in refractory period
+        refrac = self.not_in_refractory()
+
+        # calculate change in membrane potential for neurons not in refractory period
+        dvm = self.tki.dt() * (-1*(self.v_m - self.v_r) / self.tao_m + i_syn / self.c_m) * refrac
+        # print(dvm)
+        self.v_m += dvm
+
+        # find indices of neurons that have fired
+        self.spiked = np.where(self.v_m >= self.v_thr)
+
+        # generate spike mask Non-standard LIF code starts here -------------------------------------
+        s = np.zeros_like(self.spike_count)
+        s[self.spiked] = 1.0
+
+        # adjust threshold voltage
+        print(self.v_thr)
+        self.v_thr = self.v_thr + self.nip * (s - self.phi)
+        print(self.v_thr)
+        print(self.nip)
+        print()
+        # make sure threshold does not drop below resting potential
+        where_low = np.where(self.v_thr < self.v_r)
+        self.v_thr[where_low] = 1.01 * self.v_r[where_low]
+
+
 class AdExNeuralGroup(ExLIFNeuralGroup):
     """
     This class defines a group of Adaptive Exponential Integrate and Fire Neurons, as described by Brette and Gerstner (2005). 
     NOTE: This model has problems and should not be used for practical networks
     """
-    def __init__(self, n_type: np.ndarray, name: str, tki: TimeKeeperIterator, params: AdExParams, field_shape=None):
-        super().__init__(n_type, name, tki, params=params, field_shape=field_shape)
+    def __init__(self, n_type: int, num: int, name: str, tki: TimeKeeperIterator, params: AdExParams, field_shape=None):
+        super().__init__(n_type, num, name, tki, params=params, field_shape=field_shape)
         self.a = np.full(self.shape, params.a)  # a parameter for AdEx model
         self.b = np.full(self.shape, params.b)  # b parameter for AdEx model
         self.tao_w = np.full(self.shape, params.tao_w)  # decay time constant for conductance adaptation parameter for AdEx model

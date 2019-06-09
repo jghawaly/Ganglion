@@ -27,27 +27,27 @@ if __name__ == "__main__":
 
     if args.model == 'if':
         model = IFNeuralGroup
-        params = IFParams
+        params = IFParams()
     elif args.model == 'lif':
         model = LIFNeuralGroup
-        params = LIFParams
+        params = LIFParams()
     elif args.model == 'ftlif':
         model = FTLIFNeuralGroup
-        params = FTLIFParams
+        params = FTLIFParams()
     elif args.model == 'exlif':
         model = ExLIFNeuralGroup
-        params = ExLIFParams
+        params = ExLIFParams()
     elif args.model == 'adex':
         model = AdExNeuralGroup
-        params = AdExParams
+        params = AdExParams()
     else:
         raise RuntimeError("%s is not a valid neuron model, must be if, lif, ftlif, exlif, or adex.")
     
     tki = TimeKeeperIterator(timeunit=args.increment*msec)
     duration = args.duration * msec
-    g1 = SensoryNeuralGroup(np.ones(args.num_input_neurons, dtype=np.int), "input", tki, params())
-    g2 = model(np.ones(args.num_hidden_neurons, dtype=np.int), "hidden", tki, params())
-    g3 = model(np.ones(args.num_output_neurons, dtype=np.int), "output", tki, params())
+    g1 = SensoryNeuralGroup(np.ones(args.num_input_neurons, dtype=np.int), "input", tki, params)
+    g2 = model(np.ones(args.num_hidden_neurons, dtype=np.int), "hidden", tki, params)
+    g3 = model(np.ones(args.num_output_neurons, dtype=np.int), "output", tki, params)
     g3.tracked_vars = ["v_m", "i_syn"]
 
     nn = NeuralNetwork([g1, g2, g3], "blah", tki)

@@ -380,6 +380,7 @@ class DASTDPSynapticGroup(BaseSynapticGroup):
         # calculate change in eligibility traces using Euler's method
         self.ab_et += -1.0 * self.tki.dt() * self.ab_et / self.stdpp.ab_et_tao
         self.ba_et += -1.0 * self.tki.dt() * self.ba_et / self.stdpp.ba_et_tao
+        
 
         # find the indices where there were spikes
         si = np.where(fire_count > 0.5)
@@ -404,12 +405,12 @@ class DASTDPSynapticGroup(BaseSynapticGroup):
         else:
             ab_scale = self.stdpp.ab_scale_neg
             ba_scale = self.stdpp.ba_scale_neg
-        # print(self.w)
+        
         # perform pre-post plasticity based on reward
         self.w += self.ab_et * self.stdpp.lr * ab_scale * np.abs(reward)
         # perform post-pre plasticity based on reward
         self.w += self.ba_et * self.stdpp.lr * ba_scale * np.abs(reward)
-        
+
         # make sure that weights stay in bounds
         self.w = np.clip(self.w, 1.0e-5, 1.0)
 

@@ -38,6 +38,13 @@ class FTLIFParams(LIFParams):
         self.tao_ft = 100.0 * msec
 
 
+class HSLIFParams(LIFParams):
+    def __init__(self):
+        super().__init__()
+        self.nip = 0.0001
+        self.phi = 1
+
+
 class ExLIFParams(LIFParams):
     def __init__(self):
         super().__init__()
@@ -127,21 +134,21 @@ class DASTDPParams():
         self.ab_et_tao = 7.21 * sec   
         self.ba_et_tao = 3.61 * sec
 
-        # # scaling factors for positive rewards
-        # self.ab_scale_pos = 1.0
-        # self.ba_scale_pos = -1.0
-
-        # # scaling factors for negative rewards
-        # self.ab_scale_neg = -1.0
-        # self.ba_scale_neg = 1.0
-
         # scaling factors for positive rewards
         self.ab_scale_pos = 1.0
-        self.ba_scale_pos = 0.0
+        self.ba_scale_pos = -1.0
 
         # scaling factors for negative rewards
-        self.ab_scale_neg = 0.0
-        self.ba_scale_neg = -1.0
+        self.ab_scale_neg = -1.0
+        self.ba_scale_neg = 1.0
+
+        # # scaling factors for positive rewards
+        # self.ab_scale_pos = 1.0
+        # self.ba_scale_pos = 0.0
+
+        # # scaling factors for negative rewards
+        # self.ab_scale_neg = 0.0
+        # self.ba_scale_neg = -1.0
 
         # common settings
         self.stdp_window = 20.0 * msec
