@@ -10,3 +10,4 @@
 /ganglion/examples/cart_pole.py
 /ganglion/examples/gabor.py
 /ganglion/vectorized/MNIST_data
+/ganglion/data/MNIST_data
