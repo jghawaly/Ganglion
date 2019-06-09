@@ -19,7 +19,7 @@ class NeuralGroup:
         
         self.n_type = n_type  # type of neurons in this group (excitatory or inhibitory)
         self.n_num = num  # number of neurons in this group
-        self.shape = (self.n_num)  # shape/geometry of this neural group
+        self.shape = (self.n_num,)  # shape/geometry of this neural group
         self.tracked_vars = []  # variables to be tracked throughout the course of evaluation
 
         # define the virtual shape of the neural group
@@ -123,6 +123,7 @@ class IFNeuralGroup(NeuralGroup):
     def __init__(self, n_type: int, num: int, name: str, tki: TimeKeeperIterator, params: IFParams, field_shape=None):
         super().__init__(n_type, num, name, tki, field_shape=field_shape)
         # custom parameters
+        self.params = params
         self.refractory_period = np.full(self.shape, params.refractory_period)  # refractory period for these neurons
         self.spiked = np.zeros(self.shape, dtype=np.int)  # holds boolean array of WHETHER OR NOT a spike occured in the last call to run() (Note: NOT THE LAST TIME STEP)
         self.spike_count = np.zeros(self.shape, dtype=np.int) # holds the NUMBER OF spikes that occured in the last evaluated time window
@@ -201,7 +202,7 @@ class IFNeuralGroup(NeuralGroup):
         if "spike" in self.tracked_vars:
             self.spike_track.append(self.spike_count.copy())
         if "v_thr" in self.tracked_vars:
-            self.v_thr_track.append(self.v_thr)
+            self.v_thr_track.append(self.v_thr.copy())
 
     def post_update(self, i_syn):
         # add a new spike to the spike count for each neuron that fired
@@ -310,6 +311,8 @@ class FTLIFNeuralGroup(LIFNeuralGroup):
             self.spike_track.append(self.spike_count.copy())
         if "ft" in self.tracked_vars:
             self.ft_track.append(self.ft.copy())
+        if "v_thr" in self.tracked_vars:
+            self.v_thr_track.append(self.v_thr.copy())
 
     def update(self, i_syn):
         # mask of neurons not in refractory period
@@ -352,19 +355,16 @@ class HSLIFNeuralGroup(LIFNeuralGroup):
         # find indices of neurons that have fired
         self.spiked = np.where(self.v_m >= self.v_thr)
 
-        # generate spike mask Non-standard LIF code starts here -------------------------------------
+        # generate spike mask: Non-standard LIF code starts here -------------------------------------
         s = np.zeros_like(self.spike_count)
         s[self.spiked] = 1.0
 
         # adjust threshold voltage
-        print(self.v_thr)
         self.v_thr = self.v_thr + self.nip * (s - self.phi)
-        print(self.v_thr)
-        print(self.nip)
-        print()
+
         # make sure threshold does not drop below resting potential
-        where_low = np.where(self.v_thr < self.v_r)
-        self.v_thr[where_low] = 1.01 * self.v_r[where_low]
+        where_low = np.where(self.v_thr <= self.v_r)
+        self.v_thr[where_low] = 0.99 * self.v_r[where_low]
 
 
 class AdExNeuralGroup(ExLIFNeuralGroup):
@@ -381,6 +381,10 @@ class AdExNeuralGroup(ExLIFNeuralGroup):
 
         # parameter tracks
         self.adap_track = []
+    
+    def reset(self):
+        self.v_m = self.v_r.copy()
+        self.w = np.full(self.shape, self.params.w)
 
     def update(self, i_syn):
         # mask of neurons not in refractory period
@@ -413,3 +417,5 @@ class AdExNeuralGroup(ExLIFNeuralGroup):
             self.spike_track.append(self.spike_count.copy())
         if "adap" in self.tracked_vars:
             self.adap_track.append(self.w.copy())
+        if "v_thr" in self.tracked_vars:
+            self.v_thr_track.append(self.v_thr.copy())

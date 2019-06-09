@@ -41,7 +41,7 @@ class FTLIFParams(LIFParams):
 class HSLIFParams(LIFParams):
     def __init__(self):
         super().__init__()
-        self.nip = 0.0001
+        self.nip = 0.001
         self.phi = 1
 
 

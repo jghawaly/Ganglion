@@ -16,9 +16,9 @@ print()
 tki = TimeKeeperIterator(timeunit=0.01*msec)
 duration = 5 * msec
 
-g1 = SensoryNeuralGroup(np.ones(4, dtype=np.int), "input", tki, LIFParams())
-g2 = LIFNeuralGroup(np.ones(4, dtype=np.int), "hidden", tki, LIFParams())
-g3 = LIFNeuralGroup(np.ones(4, dtype=np.int), "output", tki, LIFParams())
+g1 = SensoryNeuralGroup(1, np.ones(4, dtype=np4, "input", tki, LIFParams())
+g2 = LIFNeuralGroup(1, 4, "hidden", tki, LIFParams())
+g3 = LIFNeuralGroup(1, 4, "output", tki, LIFParams())
 g3.tracked_vars = ['i_syn']
 
 nn = NeuralNetwork([g1, g2, g3], "network", tki)
@@ -51,9 +51,9 @@ print()
 tki = TimeKeeperIterator(timeunit=0.1*msec)
 duration = 500 * msec
 
-g1 = SensoryNeuralGroup(np.ones(4, dtype=np.int), "input", tki, LIFParams())
-g2 = LIFNeuralGroup(np.ones(4, dtype=np.int), "hidden", tki, LIFParams())
-g3 = LIFNeuralGroup(np.ones(4, dtype=np.int), "output", tki, LIFParams())
+g1 = SensoryNeuralGroup(1, 4, "input", tki, LIFParams())
+g2 = LIFNeuralGroup(1, 4, "hidden", tki, LIFParams())
+g3 = LIFNeuralGroup(1, 4, "output", tki, LIFParams())
 g3.tracked_vars = ['i_syn']
 
 nn = NeuralNetwork([g1, g2, g3], "network", tki)
@@ -86,9 +86,9 @@ print()
 tki = TimeKeeperIterator(timeunit=0.1*msec)
 duration = 500 * msec
 
-g1 = SensoryNeuralGroup(np.ones(4, dtype=np.int), "input", tki, LIFParams())
-g2 = LIFNeuralGroup(np.ones(4, dtype=np.int), "hidden", tki, LIFParams())
-g3 = LIFNeuralGroup(np.ones(4, dtype=np.int), "output", tki, LIFParams())
+g1 = SensoryNeuralGroup(1, 4, "input", tki, LIFParams())
+g2 = LIFNeuralGroup(1, 4, "hidden", tki, LIFParams())
+g3 = LIFNeuralGroup(1, 4, "output", tki, LIFParams())
 g3.tracked_vars = ['i_syn']
 
 nn = NeuralNetwork([g1, g2, g3], "network", tki)

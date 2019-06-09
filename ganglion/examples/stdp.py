@@ -2,11 +2,11 @@ import sys
 sys.path.append("../vectorized")
 
 from timekeeper import TimeKeeperIterator
-from NeuralGroup import SensoryNeuralGroup, IFNeuralGroup, LIFNeuralGroup, FTLIFNeuralGroup, ExLIFNeuralGroup, AdExNeuralGroup
+from NeuralGroup import SensoryNeuralGroup, IFNeuralGroup, LIFNeuralGroup, FTLIFNeuralGroup, ExLIFNeuralGroup, AdExNeuralGroup, HSLIFNeuralGroup
 from NeuralNetwork import NeuralNetwork
-from parameters import IFParams, LIFParams, FTLIFParams, ExLIFParams, AdExParams, PairSTDPParams, TripletSTDPParams
+from parameters import IFParams, LIFParams, FTLIFParams, ExLIFParams, AdExParams, PairSTDPParams, TripletSTDPParams, HSLIFParams
 from units import *
-from utils import poisson_train
+from utils import poisson_train, calculate_phi
 import numpy as np
 import time
 import random
@@ -44,7 +44,7 @@ class Bar:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Simulation of a neural network that learns to detect bars in an image.')
-    parser.add_argument('--model', type=str, default='ftlif', help='the neuron model to evaluate, if, lif, ftlif, exlif, adex')
+    parser.add_argument('--model', type=str, default='hslif', help='the neuron model to evaluate, if, lif, ftlif, exlif, adex')
     parser.add_argument('--duration', type=float, default=100000.0, help='duration of simulation (milliseconds)')
     parser.add_argument('--increment', type=float, default=0.5, help='time increment for numerical integration (milliseconds)')
     parser.add_argument('--input_rate', type=float, default=64.0, help='maximum firing rate of input sensory neurons (Hz)')
@@ -52,26 +52,35 @@ if __name__ == "__main__":
     parser.add_argument('--stdp', type=str, default='triplet', help='form of stdp to use, can be pair or triplet')
     parser.add_argument('--noise_prob', type=float, default=0.1, help='probability of each pixel containing noise')
     parser.add_argument('--lr', type=float, default=0.5, help='learning rate of STDP')
+    parser.add_argument('--target_frequency', type=float, default=10, help='target frequency in Hz of neuron (only applicable to HSLIF neurons.')
 
     args = parser.parse_args()
 
+    # set up timing
+    tki = TimeKeeperIterator(timeunit=args.increment*msec)
+    duration = args.duration * msec
+
     if args.model == 'if':
         model = IFNeuralGroup
-        params = IFParams
+        params = IFParams()
     elif args.model == 'lif':
         model = LIFNeuralGroup
-        params = LIFParams
+        params = LIFParams()
     elif args.model == 'ftlif':
         model = FTLIFNeuralGroup
-        params = FTLIFParams
+        params = FTLIFParams()
     elif args.model == 'exlif':
         model = ExLIFNeuralGroup
-        params = ExLIFParams
+        params = ExLIFParams()
     elif args.model == 'adex':
         model = AdExNeuralGroup
-        params = AdExParams
+        params = AdExParams()
+    elif args.model == 'hslif':
+        model = HSLIFNeuralGroup
+        params = HSLIFParams()
+        params.phi = calculate_phi(args.target_frequency, tki)
     else:
-        raise RuntimeError("%s is not a valid neuron model, must be if, lif, ftlif, exlif, or adex." % args.model)
+        raise RuntimeError("%s is not a valid neuron model, must be if, lif, ftlif, exlif, adex, or hslif." % args.model)
     
     if args.stdp == 'pair':
         stdp_params = PairSTDPParams
@@ -81,15 +90,9 @@ if __name__ == "__main__":
         raise RuntimeError("%s is not a valid stdp model, must be pair or triplet." % args.stdp)
 
     start = time.time()
-    tki = TimeKeeperIterator(timeunit=args.increment*msec)
-    duration = args.duration * msec
 
-    inhib_layer_params = LIFParams()
-
-    exc_layer_params = params()
-
-    g1 = SensoryNeuralGroup(np.ones(args.grid_size * args.grid_size, dtype=np.int), "inputs", tki, exc_layer_params, field_shape=(args.grid_size, args.grid_size))
-    g2 = model(np.ones(1, dtype=np.int), "exc", tki, exc_layer_params)
+    g1 = SensoryNeuralGroup(1, args.grid_size * args.grid_size, "inputs", tki, params, field_shape=(args.grid_size, args.grid_size))
+    g2 = model(1, 1, "exc", tki, params)
 
     nn = NeuralNetwork([g1, g2], "stdp", tki)
     lp = stdp_params()

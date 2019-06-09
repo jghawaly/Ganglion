@@ -48,10 +48,9 @@ if __name__ == "__main__":
     elif args.model == 'hslif':
         model = HSLIFNeuralGroup
         params = HSLIFParams()
-        params.nip = 0
         params.phi = calculate_phi(args.target_frequency, tki)
     else:
-        raise RuntimeError("%s is not a valid neuron model, must be if, lif, ftlif, exlif, adex, hslif.")
+        raise RuntimeError("%s is not a valid neuron model, must be if, lif, ftlif, exlif, adex, or hslif." % args.model)
 
     n = model(1, 1, "Neuron", tki, params)
     n.tracked_vars = ["v_m", "i_syn", "v_thr"]

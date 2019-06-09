@@ -2,11 +2,11 @@ import sys
 sys.path.append("../vectorized")
 
 from timekeeper import TimeKeeperIterator
-from NeuralGroup import SensoryNeuralGroup, IFNeuralGroup, LIFNeuralGroup, FTLIFNeuralGroup, ExLIFNeuralGroup, AdExNeuralGroup
+from NeuralGroup import SensoryNeuralGroup, IFNeuralGroup, LIFNeuralGroup, FTLIFNeuralGroup, ExLIFNeuralGroup, AdExNeuralGroup, HSLIFNeuralGroup
 from NeuralNetwork import NeuralNetwork
-from parameters import IFParams, LIFParams, FTLIFParams, ExLIFParams, AdExParams
+from parameters import IFParams, LIFParams, FTLIFParams, ExLIFParams, AdExParams, HSLIFParams
 from units import *
-from utils import poisson_train
+from utils import poisson_train, calculate_phi
 import numpy as np
 import time
 import matplotlib.pyplot as plt
@@ -22,8 +22,13 @@ if __name__ == "__main__":
     parser.add_argument('--num_input_neurons', type=int, default=3, help='number of neurons in the input layer')
     parser.add_argument('--num_hidden_neurons', type=int, default=3, help='number of neurons in the hidden layer')
     parser.add_argument('--num_output_neurons', type=int, default=3, help='number of neurons in the output layer')
+    parser.add_argument('--target_frequency', type=float, default=10, help='target frequency in Hz of neuron (only applicable to HSLIF neurons.')
 
     args = parser.parse_args()
+
+    # set up timing
+    tki = TimeKeeperIterator(timeunit=args.increment*msec)
+    duration = args.duration * msec
 
     if args.model == 'if':
         model = IFNeuralGroup
@@ -40,14 +45,16 @@ if __name__ == "__main__":
     elif args.model == 'adex':
         model = AdExNeuralGroup
         params = AdExParams()
+    elif args.model == 'hslif':
+        model = HSLIFNeuralGroup
+        params = HSLIFParams()
+        params.phi = calculate_phi(args.target_frequency, tki)
     else:
-        raise RuntimeError("%s is not a valid neuron model, must be if, lif, ftlif, exlif, or adex.")
+        raise RuntimeError("%s is not a valid neuron model, must be if, lif, ftlif, exlif, adex, or hslif." % args.model)
     
-    tki = TimeKeeperIterator(timeunit=args.increment*msec)
-    duration = args.duration * msec
-    g1 = SensoryNeuralGroup(np.ones(args.num_input_neurons, dtype=np.int), "input", tki, params)
-    g2 = model(np.ones(args.num_hidden_neurons, dtype=np.int), "hidden", tki, params)
-    g3 = model(np.ones(args.num_output_neurons, dtype=np.int), "output", tki, params)
+    g1 = SensoryNeuralGroup(1, args.num_input_neurons, "input", tki, params)
+    g2 = model(1, args.num_hidden_neurons, "hidden", tki, params)
+    g3 = model(1, args.num_output_neurons, "output", tki, params)
     g3.tracked_vars = ["v_m", "i_syn"]
 
     nn = NeuralNetwork([g1, g2, g3], "blah", tki)
