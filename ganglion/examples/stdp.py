@@ -49,7 +49,7 @@ if __name__ == "__main__":
     parser.add_argument('--increment', type=float, default=0.5, help='time increment for numerical integration (milliseconds)')
     parser.add_argument('--input_rate', type=float, default=64.0, help='maximum firing rate of input sensory neurons (Hz)')
     parser.add_argument('--grid_size', type=int, default=16, help='length and width of square grid that bars are generated on')
-    parser.add_argument('--stdp', type=str, default='triplet', help='form of stdp to use, can be pair or triplet')
+    parser.add_argument('--stdp', type=str, default='pair', help='form of stdp to use, can be pair or triplet')
     parser.add_argument('--noise_prob', type=float, default=0.1, help='probability of each pixel containing noise')
     parser.add_argument('--lr', type=float, default=0.5, help='learning rate of STDP')
     parser.add_argument('--target_frequency', type=float, default=10, help='target frequency in Hz of neuron (only applicable to HSLIF neurons.')

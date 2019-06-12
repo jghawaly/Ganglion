@@ -161,16 +161,16 @@ class DodgeWorld:
 if __name__ == "__main__":
     game = DodgeWorld(same_col=False, reward_scheme=(1.0, -0.01, 0.0, -0.01), grid_shape=(8, 3))
     
-    exposure = 200.0
-    input_rate = 360.
+    exposure = 500.0
+    input_rate = 60.
     num_episodes = 1000
 
-    tki = TimeKeeperIterator(timeunit=0.5*msec)
+    tki = TimeKeeperIterator(timeunit=1.0*msec)
 
     n_params = HSLIFParams()
     n_params.gbar_e = 100.0 * nsiem
     n_params.tao_m = 150 * msec
-    n_params.phi = calculate_phi(4.0, tki)
+    n_params.phi = calculate_phi(2.0, tki)
 
     lateral_params = HSLIFParams()
     lateral_params.gbar_i = 100.0 * nsiem
@@ -190,7 +190,7 @@ if __name__ == "__main__":
     nn = NeuralNetwork([g1, g2, g2il, g3, g3il], "catch", tki)
     
     lp = DASTDPParams()
-    lp.lr = 0.05
+    lp.lr = 0.1
     lp.ab_et_tao = 0.5 * sec   
     lp.ba_et_tao = 0.25 * sec
 
