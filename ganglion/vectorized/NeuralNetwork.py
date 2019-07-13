@@ -61,8 +61,9 @@ class NeuralNetwork:
 
         if g1.shape != g2.shape:
             raise ValueError("The shape of the first neural group must be the same shape of the second neural group but are : %s and %s" % (str(g1.shape), str(g2.shape)))
-        
+
         wm = np.zeros((g1.shape[0], g2.shape[0]), dtype=np.float)
+        
         # one-to-one mapping
         np.fill_diagonal(wm, 1.0)
 

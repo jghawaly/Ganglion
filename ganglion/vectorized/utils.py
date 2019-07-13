@@ -3,11 +3,11 @@ from tensorflow.examples.tutorials.mnist import input_data
 import cv2
 
 
-def load_mnist():
+def load_mnist(dataset_dir='../datasets/mnist/'):
     """
     Load MNIST dataset through tensorflow into numpy arrays. Images are normalized.
     """
-    mnist_data = input_data.read_data_sets("MNIST_data/", one_hot=False)
+    mnist_data = input_data.read_data_sets(dataset_dir, one_hot=False)
 
     # train_data = np.vstack([img.reshape(-1,) for img in mnist_data.train.images])
     train_data = np.array([np.reshape(i, (28, 28)) for i in mnist_data.train.images])
