@@ -4,7 +4,7 @@ import numpy as np
 import multiprocessing
 
 
-class NeuralNetwork:
+class NeuralNetwork  :
     """
     Defines a network of neurons, more precisely, a network of neural groups, defined in a "liquid" way: i.e., the groups/mathematical order of operations are not
     set in stone and are calculated at the time of calling run_order
@@ -83,9 +83,9 @@ class NeuralNetwork:
         # store the new synaptic group into memory
         self.synapses.append(s)
     
-    def convolve_connect(self, g1_tag, g2_tag, patch, rstride, cstride, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9, s_type='pair', loaded_weights=None):
+    def patch_connect(self, g1_tag, g2_tag, patch, rstride, cstride, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9, s_type='pair', loaded_weights=None):
         """
-        Connect the first group to the second group in a convolutional/patched pattern. NOTE: Find a better way to
+        Connect the first group to the second group in a patched pattern. NOTE: Find a better way to
         describe this
         """
         g1 = self.g(g1_tag)
