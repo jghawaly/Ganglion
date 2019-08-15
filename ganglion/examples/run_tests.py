@@ -16,7 +16,7 @@ print()
 tki = TimeKeeperIterator(timeunit=0.01*msec)
 duration = 5 * msec
 
-g1 = SensoryNeuralGroup(1, np.ones(4, dtype=np4, "input", tki, LIFParams())
+g1 = SensoryNeuralGroup(1, 4, "input", tki, LIFParams())
 g2 = LIFNeuralGroup(1, 4, "hidden", tki, LIFParams())
 g3 = LIFNeuralGroup(1, 4, "output", tki, LIFParams())
 g3.tracked_vars = ['i_syn']
