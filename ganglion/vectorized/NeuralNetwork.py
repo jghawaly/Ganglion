@@ -83,10 +83,9 @@ class NeuralNetwork  :
         # store the new synaptic group into memory
         self.synapses.append(s)
     
-    def patch_connect(self, g1_tag, g2_tag, patch, rstride, cstride, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9, s_type='pair', loaded_weights=None):
+    def local_connect(self, g1_tag, g2_tag, kernel, rstride, cstride, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9, s_type='pair', loaded_weights=None):
         """
-        Connect the first group to the second group in a patched pattern. NOTE: Find a better way to
-        describe this
+        Connect the first group to the second group in a locally-connected pattern. This is equivalent to a LocallyConnected Layer in Keras
         """
         g1 = self.g(g1_tag)
         g2 = self.g(g2_tag)
@@ -97,16 +96,16 @@ class NeuralNetwork  :
         a_cols = g1.field_shape[1]
         b_rows = g2.field_shape[0]
         b_cols = g2.field_shape[1]
-        patch_rows = patch.shape[0]
-        patch_cols = patch.shape[1]
+        kernel_rows = kernel[0]
+        kernel_cols = kernel[1]
 
         # calculate number of strides that will be performed
         try:
-            num_strides_col = (a_cols - patch_cols) / cstride + 1
+            num_strides_col = (a_cols - kernel_cols) / cstride + 1
         except ZeroDivisionError:
             num_strides_col = 1.0
         try:
-            num_strides_row = (a_rows - patch_rows) / rstride + 1
+            num_strides_row = (a_rows - kernel_rows) / rstride + 1
         except ZeroDivisionError:
             num_strides_row = 1.0
 
@@ -125,6 +124,7 @@ class NeuralNetwork  :
         num_strides_col = int(num_strides_col)
         # based on the number of strides, calculate the expected shape of group 2
         expected_shape = (num_strides_row, num_strides_col)
+        print(expected_shape)
         if g2.field_shape != expected_shape:
             raise ValueError("Expected shape of matrix B does not match expected shape of matrix A")
 
@@ -138,7 +138,7 @@ class NeuralNetwork  :
             for c_s in range(num_strides_col):
                 c_index = c_s * cstride  # col index in A
 
-                a_mod = w_a_keys[r_index: r_index + patch_rows, c_index: c_index + patch_cols].flatten()
+                a_mod = w_a_keys[r_index: r_index + kernel_rows, c_index: c_index + kernel_cols].flatten()
                 
                 wm[a_mod, w_b_keys[r_s, c_s]] = 1.0
 

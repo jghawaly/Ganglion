@@ -1,7 +1,10 @@
 import numpy as np 
 from tensorflow.examples.tutorials.mnist import input_data
 import cv2
+import numpy.random as nprand
 
+
+''' Dataset Stuff '''
 
 def load_mnist(dataset_dir='../datasets/mnist/'):
     """
@@ -19,6 +22,8 @@ def load_mnist(dataset_dir='../datasets/mnist/'):
 
     return train_data, train_labels, test_data, test_labels
 
+
+''' Neural Network Stuff '''
 
 def poisson_train(inp: np.ndarray, dt, r):
     """
@@ -39,6 +44,17 @@ def poisson_train(inp: np.ndarray, dt, r):
     return o
 
 
+def calculate_phi(f, tki):
+    """
+    Calculate phi for homeostatic neuron
+    @param f: desired spike frequency in Hz
+    @param tki: time keeper iterator instace
+    """
+    return tki.dt() * f
+
+
+''' Computer Vision Stuff '''
+
 def save_img(path, image, normalize=False):
     """
     Save an image. Useful for saving weight maps
@@ -52,10 +68,39 @@ def save_img(path, image, normalize=False):
     cv2.imwrite(path, image)
 
 
-def calculate_phi(f, tki):
-    """
-    Calculate phi for homeostatic neuron
-    @param f: desired spike frequency in Hz
-    @param tki: time keeper iterator instace
-    """
-    return tki.dt() * f
+def dog_filter(img, gauss1_size=(3,3), gauss2_size=(5,5), gauss_std1=0, gauss_std2=0):
+    # perform Gaussian blurring at two different kernel sizes
+    gauss1 = cv2.GaussianBlur(img, gauss1_size, gauss_std1)
+    gauss2 = cv2.GaussianBlur(img, gauss2_size, gauss_std2)
+
+    # return the difference of the Gaussians
+    return gauss1 - gauss2
+
+
+def add_noise(img, p=0.1):
+    img = img.copy()
+    m = img.max()
+    # generate noise
+    for idx, _ in np.ndenumerate(img):
+        if nprand.random() <= p:
+            img[idx] = nprand.uniform(0.01, m)
+        
+    return img
+
+
+if __name__ == '__main__':
+    import matplotlib.pyplot as plt
+    # test the DOG filter on MNIST
+
+    # load the MNIST dataset
+    train_data, train_labels, test_data, test_labels = load_mnist()
+
+    for x in range(1000):
+        img = add_noise(train_data[x])
+        # img = cv2.resize(img, (16,16), interpolation=cv2.INTER_AREA)
+        dog = dog_filter(img)
+
+        concat = np.hstack((img, dog))
+        plt.imshow(concat, cmap='gray')
+        plt.show()
+    exit()
