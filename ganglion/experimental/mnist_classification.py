@@ -6,7 +6,7 @@ from NeuralGroup import SensoryNeuralGroup, IFNeuralGroup, LIFNeuralGroup, FTLIF
 from NeuralNetwork import NeuralNetwork
 from parameters import IFParams, LIFParams, FTLIFParams, ExLIFParams, AdExParams, HSLIFParams, DASTDPParams
 from units import *
-from utils import poisson_train, calculate_phi, load_mnist
+from utils import poisson_train, calculate_phi, load_mnist, add_noise
 
 import cv2
 import numpy as np 
@@ -14,17 +14,6 @@ import numpy.random as nprand
 import matplotlib.pyplot as plt
 import argparse
 import random
-
-
-def add_noise(img, p=0.1):
-    img = img.copy()
-    m = img.max()
-    # generate noise
-    for idx, _ in np.ndenumerate(img):
-        if nprand.random() <= p:
-            img[idx] = nprand.uniform(0.01, m)
-        
-    return img
 
 
 def sample_patch(img, rows, cols):
@@ -65,7 +54,7 @@ if __name__ == "__main__":
     parser.add_argument('--target_frequency', type=float, default=5, help='target frequency in Hz of neuron (only applicable to HSLIF neurons')
     parser.add_argument('--episodes', type=int, default=3000, help='number of episodes')
     parser.add_argument('--chi', type=float, default=0.0, help='a float value betwen 0 and 1 that is the probability of sampling the next action based on relative firing rates')
-    parser.add_argument('--n', type=int, default=30, help='n^2 neurons in hidden layer')
+    parser.add_argument('--n', type=int, default=13, help='n^2 neurons in hidden layer')
     parser.add_argument('--nri', type=float, default=3.0, help='noise resampling interval')
     # parse user input
     args = parser.parse_args()
@@ -140,8 +129,9 @@ if __name__ == "__main__":
     nn = NeuralNetwork([g1, g2, g2i, g3, g3i], "mnist_learning", tki)
     
     # excitatory feed-forward
-    nn.fully_connect("g1", "g2", trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, s_type='da')
+    # nn.fully_connect("g1", "g2", trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, s_type='da')
     nn.fully_connect("g2", "g3", trainable=True, stdp_params=lp, minw=0.1, maxw=0.9, s_type='da')
+    nn.local_connect('g1', 'g2', (4,4), 1, 1, trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, s_type='da')
 
     # inhibitory lateral feedback
     nn.one_to_one_connect("g2", "g2i", w_i=1.0, trainable=False)
