@@ -14,6 +14,7 @@ import numpy.random as nprand
 import matplotlib.pyplot as plt
 import argparse
 import random
+from collections import deque
 
 
 def sample_patch(img, rows, cols):
@@ -52,23 +53,18 @@ if __name__ == "__main__":
     parser.add_argument('--input_rate', type=float, default=20.0, help='maximum firing rate of input sensory neurons (Hz)')
     parser.add_argument('--stdp', type=str, default='pair', help='form of stdp to use, can be pair or triplet')
     parser.add_argument('--target_frequency', type=float, default=5, help='target frequency in Hz of neuron (only applicable to HSLIF neurons')
-    parser.add_argument('--episodes', type=int, default=3000, help='number of episodes')
+    parser.add_argument('--episodes', type=int, default=10000, help='number of episodes')
     parser.add_argument('--chi', type=float, default=0.0, help='a float value betwen 0 and 1 that is the probability of sampling the next action based on relative firing rates')
-    parser.add_argument('--n', type=int, default=13, help='n^2 neurons in hidden layer')
     parser.add_argument('--nri', type=float, default=3.0, help='noise resampling interval')
+    parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
+    parser.add_argument('--rh', type=int, default=100, help='number of past rewards to keep track of for averaging')
+    parser.add_argument('--ah', type=int, default=100, help='number of past accuracy measures to keep track of for averaging')
+
     # parse user input
     args = parser.parse_args()
 
     # load the MNIST dataset
     train_data, train_labels, test_data, test_labels = load_mnist()
-
-    # for x in range(1000):
-    #     img = add_noise(train_data[x])
-    #     label = train_labels[x]
-    #     img = cv2.resize(img, (16,16), interpolation=cv2.INTER_AREA)
-    #     plt.imshow(img)\
-    #     plt.show()
-    # exit()
 
     ind = np.where(train_labels<3)
     train_data = train_data[ind]
@@ -81,7 +77,7 @@ if __name__ == "__main__":
     # create the timer
     tki = TimeKeeperIterator(timeunit=args.increment*msec)
 
-    # select neuron model based on user input
+    # select neuro  n model based on user input
     if args.model == 'if':
         model = IFNeuralGroup
         e_params = IFParams()
@@ -105,8 +101,8 @@ if __name__ == "__main__":
     else:
         raise RuntimeError("%s is not a valid neuron model, must be if, lif, ftlif, exlif, adex, or hslif." % args.model)
     
-    lp = DASTDPParams()
-    lp.lr = 0.08
+    lp = DASTDPParams()         
+    lp.lr = args.lr
 
     # inhibitory neuron parameters
     i_params = LIFParams()
@@ -119,46 +115,57 @@ if __name__ == "__main__":
     # Define neural groups
     g1 = SensoryNeuralGroup(1, 16*16, "g1", tki, e_params, field_shape=(16, 16))
 
-    g2 = model(1, args.n * args.n, "g2", tki, e_params, field_shape=(args.n, args.n))
-    g2i = LIFNeuralGroup(0, args.n * args.n, "g2i", tki, i_params, field_shape=(args.n, args.n))
+    g2 = model(1, 12*12, "g2", tki, e_params, field_shape=(12, 12))
+    g2i = LIFNeuralGroup(0, 12*12, "g2i", tki, i_params, field_shape=(12, 12))
 
-    g3 = LIFNeuralGroup(1, 3, "g3", tki, e_params)
-    g3i = LIFNeuralGroup(0, 3, "g3i", tki, i_params)
+    g3 = model(1, 5*5, "g3", tki, e_params, field_shape=(5, 5))
+    g3i = LIFNeuralGroup(0, 5*5, "g3i", tki, i_params, field_shape=(5, 5))
+
+    g4 = LIFNeuralGroup(1, len(network_labels), "g4", tki, e_params)
+    g4i = LIFNeuralGroup(0, len(network_labels), "g4i", tki, i_params)
 
     # create neural network
-    nn = NeuralNetwork([g1, g2, g2i, g3, g3i], "mnist_learning", tki)
+    nn = NeuralNetwork([g1, g2, g2i, g3, g3i, g4, g4i], "multilayer_mnist", tki)
     
     # excitatory feed-forward
-    # nn.fully_connect("g1", "g2", trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, s_type='da')
-    nn.fully_connect("g2", "g3", trainable=True, stdp_params=lp, minw=0.1, maxw=0.9, s_type='da')
-    nn.local_connect('g1', 'g2', (4,4), 1, 1, trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, s_type='da')
+    # nn.fully_connect('g1', 'g2', trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, s_type='da')
+    nn.local_connect('g1', 'g2', (5,5), 1, 1, trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, s_type='da')
+    # nn.fully_connect("g2", "g3", trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, s_type='da')
+    nn.local_connect('g2', 'g3', (4,4), 2, 2, trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, s_type='da')
+    nn.fully_connect('g3', 'g4', trainable=True, stdp_params=lp, minw=0.1, maxw=0.5, s_type='da')
 
     # inhibitory lateral feedback
     nn.one_to_one_connect("g2", "g2i", w_i=1.0, trainable=False)
     nn.fully_connect("g2i", "g2", w_i=1.0, trainable=False, skip_one_to_one=True)
     nn.one_to_one_connect("g3", "g3i", w_i=1.0, trainable=False)
     nn.fully_connect("g3i", "g3", w_i=1.0, trainable=False, skip_one_to_one=True)
+    nn.one_to_one_connect("g4", "g4i", w_i=1.0, trainable=False)
+    nn.fully_connect("g4i", "g4", w_i=1.0, trainable=False, skip_one_to_one=True)
 
+    # pre-normalize weights
     nn.normalize_weights()
 
     # setup simulation parameters
     last_exposure_step = 1  # timestep of last exposure
     last_resample_step = 1 # timestep of last resampling
-    cummulative_spikes = np.zeros(g3.shape)  # initialize the cummulative spikes matrix
+    cummulative_spikes = np.zeros(g4.shape)  # initialize the cummulative spikes matrix
     i = 0  # current episode
-    scores = []  # list of scores
     ft_add = 0  # additive frequency
     last_result = "       "
+    time_since_eval = 0
 
     # sample initial image and label
     mnist_counter = 0
     img = cv2.resize(add_noise(train_data[mnist_counter]), (16,16), interpolation=cv2.INTER_AREA)
     label = train_labels[mnist_counter]
-    # plt.imshow(train_data[mnist_counter])
-    # plt.show()
-    # plt.imshow(img)
-    # plt.show()
-    time_since_eval = 0
+
+    # deque for tracking various things
+    reward_history = deque(args.rh*[0], args.rh)
+    reward_track = []  # list of average rewards
+    avg_reward = 0
+    accuracy_history = deque(args.ah*[0], args.ah)
+    accuracy_track = []  # list of average accuracy
+    avg_accuracy = 0
 
     for step in tki:
         if (step - last_resample_step) * tki.dt() >= args.nri * msec:
@@ -166,12 +173,14 @@ if __name__ == "__main__":
             img = cv2.resize(add_noise(train_data[mnist_counter]), (16,16), interpolation=cv2.INTER_AREA)
         if cummulative_spikes.sum() > 0 and np.count_nonzero(cummulative_spikes == cummulative_spikes.max()) == 1:
             last_exposure_step = step
-            print(cummulative_spikes)
             dice = random.random()
             action = cummulative_spikes.argmax()
+
+            # True for correct prediction, False otherwise
+            correct = network_labels[action] == label
             
-            reward = 1.0 if network_labels[action] == label else -0.1
-            last_result = "CORRECT" if reward > 0.0 else "WRONG  "
+            # determine reward
+            reward = 1.0 if correct else -1.0
 
             # get new image and label
             mnist_counter += 1
@@ -180,10 +189,21 @@ if __name__ == "__main__":
             img = cv2.resize(train_data[mnist_counter], (16,16), interpolation=cv2.INTER_AREA)
             label = train_labels[mnist_counter]
 
+            # puff some dopamine into the network
             nn.dopamine_puff(reward, actions=action)
             
+            # iterate episode
             i += 1
-            scores.append(reward)
+
+            # track reward
+            reward_history.append(reward)
+            avg_reward = sum(reward_history)/args.rh
+            reward_track.append(avg_reward)
+
+            # track accuracy
+            accuracy_history.append(1.0 if correct else 0.0)
+            avg_accuracy = sum(accuracy_history)/args.ah
+            accuracy_track.append(avg_accuracy)
 
             cummulative_spikes.fill(0)
 
@@ -200,11 +220,11 @@ if __name__ == "__main__":
         g1.run(poisson_train(img, tki.dt(), args.input_rate + ft_add))
 
         # run all layers
-        nn.run_order(["g1", "g2", "g2i", "g3", "g3i"])
+        nn.run_order(["g1", "g2", "g2i", "g3", "g3i", "g4", "g4i"])
 
-        cummulative_spikes += g3.spike_count
+        cummulative_spikes += g4.spike_count
         
-        sys.stdout.write("Current simulation time :: %.0f ms :: Current episode :: %g :: Last Result :: %s :: Num Spikes :: %g                  \r" % (step * tki.dt() / msec, i, last_result, cummulative_spikes.sum()))
+        sys.stdout.write("Simulation time :: %.0f ms :: Episode :: %g :: Average Reward :: %.2f :: Average Accuracy :: %.2f  :: # Spikes :: %g                  \r" % (step * tki.dt() / msec, i, avg_reward, avg_accuracy, cummulative_spikes.sum()))
 
         if i == args.episodes:
             break
@@ -212,11 +232,20 @@ if __name__ == "__main__":
     print("\n\n")
     # nn.save_w("g1_g2.npy", '1', '2')
     # nn.save_w("g2_g3.npy", '2', '3')
-    plt.plot(scores)
+    plt.plot(accuracy_track)
     plt.show()
 
     # -------------------------------------------------------
     img = form_full_weight_map(g2, "g1", "g2", nn)
+    plt.imshow(img)
+    plt.title("Post-training weight matrix")
+    plt.colorbar()
+    plt.clim(0, img.max())
+    plt.show()
+    # -------------------------------------------------------
+
+    # -------------------------------------------------------
+    img = form_full_weight_map(g2, "g2", "g3", nn)
     plt.imshow(img)
     plt.title("Post-training weight matrix")
     plt.colorbar()
