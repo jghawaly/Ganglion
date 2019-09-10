@@ -20,7 +20,7 @@ class BaseSynapticGroup:
     """
     Defines a groups of synapses connecting two groups of neurons
     """
-    def __init__(self, pre_n: NeuralGroup, post_n: NeuralGroup, tki, initial_w: float=None, w_rand_min: float=0.0, w_rand_max: float=1.0, syn_params: SynapseParams=None, weight_multiplier=None, loaded_weights=None, trainable=True):
+    def __init__(self, pre_n: NeuralGroup, post_n: NeuralGroup, tki, initial_w: float=None, w_rand_min: float=0.0, w_rand_max: float=1.0, syn_params: SynapseParams=None, weight_multiplier=None, loaded_weights=None, trainable=True, localized_normalization=False):
         self.synp = SynapseParams() if syn_params is None else syn_params  # synapse parameters are default if None is given
         self.tki = tki  # reference to timekeeper object that is shared amongst the entire network
         self.pre_n = pre_n  # presynaptic neural group
@@ -46,6 +46,7 @@ class BaseSynapticGroup:
         self.history = np.zeros((self.num_histories, self.m), dtype=np.float)  # A num_histories * num_synapses matrix containing spike counts for each synapse, for each time evaluation step
         self.last_history_update_time = -1.0  # this is the time at which the history array was last updated
         self.p_term = self.precalculate_term()  # precalculate part of the synaptic current calculation
+        self.localized_normalization = localized_normalization  # If True, whenever normalize_weights is called, only weights that are enabled as modifiable via the weight multiplier will be normalized
 
     """ Methods that should NOT be overridden -----------------------------------------------------------------------------"""
 
@@ -138,7 +139,16 @@ class BaseSynapticGroup:
         Normalize the weights such that they sum to one
         """
         for i in range(self.w.shape[1]):
-            self.w[:,i] = self.w[:,i] / self.w[:,i].sum()
+            if self.localized_normalization:
+                unmasked_elements = np.where(self.weight_multiplier[:,i]==1)
+                # print(unmasked_elements)
+                # print(self.w[:,i])
+                # print(self.w[:,i][unmasked_elements])
+                self.w[:,i][unmasked_elements] = self.w[:,i][unmasked_elements] / self.w[:,i][unmasked_elements].sum()
+                # print(self.w[:,i])
+                # exit()
+            else:
+                self.w[:,i] = self.w[:,i] / self.w[:,i].sum()
 
     """ Methods that can be overridden ---------------------------------------------------------------------------------"""
 
@@ -164,8 +174,9 @@ class BaseSynapticGroup:
 
 
 class PairSTDPSynapticGroup(BaseSynapticGroup):
-    def __init__(self, pre_n: NeuralGroup, post_n: NeuralGroup, tki, initial_w: float=None, w_rand_min: float=0.0, w_rand_max: float=1.0, trainable: bool=True, syn_params: SynapseParams=None, weight_multiplier=None, loaded_weights=None, stdp_params: PairSTDPParams=None):
-        super().__init__(pre_n, post_n, tki, initial_w=initial_w, w_rand_min=w_rand_min, w_rand_max=w_rand_max, syn_params=syn_params, weight_multiplier=weight_multiplier, loaded_weights=loaded_weights, trainable=trainable)
+    def __init__(self, pre_n: NeuralGroup, post_n: NeuralGroup, tki, initial_w: float=None, w_rand_min: float=0.0, w_rand_max: float=1.0, trainable: bool=True, 
+                 syn_params: SynapseParams=None, weight_multiplier=None, loaded_weights=None, stdp_params: PairSTDPParams=None, localized_normalization=False):
+        super().__init__(pre_n, post_n, tki, initial_w=initial_w, w_rand_min=w_rand_min, w_rand_max=w_rand_max, syn_params=syn_params, weight_multiplier=weight_multiplier, loaded_weights=loaded_weights, trainable=trainable, localized_normalization=localized_normalization)
         
         # STDP parameters are default if None is given
         self.stdpp = PairSTDPParams() if stdp_params is None else stdp_params
@@ -232,8 +243,9 @@ class PairSTDPSynapticGroup(BaseSynapticGroup):
 
 
 class TripletSTDPSynapticGroup(BaseSynapticGroup):
-    def __init__(self, pre_n: NeuralGroup, post_n: NeuralGroup, tki, initial_w: float=None, w_rand_min: float=0.0, w_rand_max: float=1.0, trainable: bool=True, syn_params: SynapseParams=None, weight_multiplier=None, loaded_weights=None, stdp_params: TripletSTDPParams=None):
-        super().__init__(pre_n, post_n, tki, initial_w=initial_w, w_rand_min=w_rand_min, w_rand_max=w_rand_max, syn_params=syn_params, weight_multiplier=weight_multiplier, loaded_weights=loaded_weights, trainable=trainable)
+    def __init__(self, pre_n: NeuralGroup, post_n: NeuralGroup, tki, initial_w: float=None, w_rand_min: float=0.0, w_rand_max: float=1.0, trainable: bool=True, 
+                 syn_params: SynapseParams=None, weight_multiplier=None, loaded_weights=None, stdp_params: TripletSTDPParams=None, localized_normalization=False):
+        super().__init__(pre_n, post_n, tki, initial_w=initial_w, w_rand_min=w_rand_min, w_rand_max=w_rand_max, syn_params=syn_params, weight_multiplier=weight_multiplier, loaded_weights=loaded_weights, trainable=trainable, localized_normalization=localized_normalization)
         
         # STDP parameters are default if None is given
         self.stdpp = TripletSTDPParams() if stdp_params is None else stdp_params 
@@ -315,8 +327,8 @@ class TripletSTDPSynapticGroup(BaseSynapticGroup):
 
 
 class DASTDPSynapticGroup(BaseSynapticGroup):
-    def __init__(self, pre_n: NeuralGroup, post_n: NeuralGroup, tki, initial_w: float=None, w_rand_min: float=0.0, w_rand_max: float=1.0, trainable: bool=True, syn_params: SynapseParams=None, weight_multiplier=None, loaded_weights=None, stdp_params: DASTDPParams=None):
-        super().__init__(pre_n, post_n, tki, initial_w=initial_w, w_rand_min=w_rand_min, w_rand_max=w_rand_max, syn_params=syn_params, weight_multiplier=weight_multiplier, loaded_weights=loaded_weights, trainable=trainable)
+    def __init__(self, pre_n: NeuralGroup, post_n: NeuralGroup, tki, initial_w: float=None, w_rand_min: float=0.0, w_rand_max: float=1.0, trainable: bool=True, syn_params: SynapseParams=None, weight_multiplier=None, loaded_weights=None, stdp_params: DASTDPParams=None, localized_normalization=False):
+        super().__init__(pre_n, post_n, tki, initial_w=initial_w, w_rand_min=w_rand_min, w_rand_max=w_rand_max, syn_params=syn_params, weight_multiplier=weight_multiplier, loaded_weights=loaded_weights, trainable=trainable, localized_normalization=localized_normalization)
 
         # STDP parameters are default if None is given
         self.stdpp = DASTDPParams() if stdp_params is None else stdp_params 
@@ -407,9 +419,9 @@ class DASTDPSynapticGroup(BaseSynapticGroup):
             ba_scale = self.stdpp.ba_scale_neg
         
         # perform pre-post plasticity based on reward
-        self.w += self.ab_et * self.stdpp.lr * ab_scale * np.abs(reward)
+        self.w += self.weight_multiplier * self.ab_et * self.stdpp.lr * ab_scale * np.abs(reward)
         # perform post-pre plasticity based on reward
-        self.w += self.ba_et * self.stdpp.lr * ba_scale * np.abs(reward)
+        self.w += self.weight_multiplier * self.ba_et * self.stdpp.lr * ba_scale * np.abs(reward)
 
         # make sure that weights stay in bounds
         self.w = np.clip(self.w, 1.0e-5, 1.0)

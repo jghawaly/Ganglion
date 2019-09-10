@@ -126,7 +126,7 @@ class NeuralNetwork  :
         expected_shape = (num_strides_row, num_strides_col)
         print(expected_shape)
         if g2.field_shape != expected_shape:
-            raise ValueError("Expected shape of matrix B does not match expected shape of matrix A")
+            raise ValueError("Given shape of matrix B does not match expected shape: expected shape :: %s :: given shape :: %s" %(str(expected_shape), str(g2.field_shape)))
 
         # maps indices from group field shapes to indices in wm
         w_a_keys = np.reshape(np.arange(0, a_rows * a_cols, 1), (a_rows, a_cols))
@@ -146,13 +146,13 @@ class NeuralNetwork  :
         # s = SynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, stdp_form=stdp_form, loaded_weights=loaded_weights)
         
         if s_type == 'pair':
-            s = PairSTDPSynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights)
+            s = PairSTDPSynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights, localized_normalization=True)
         elif s_type == 'triplet':
-            s = TripletSTDPSynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights)
+            s = TripletSTDPSynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights, localized_normalization=True)
         elif s_type == 'base':
-            s = BaseSynapticGroup(g1, g2, self.tki, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights)
+            s = BaseSynapticGroup(g1, g2, self.tki, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights, localized_normalization=True)
         elif s_type == 'da':
-            s = DASTDPSynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights)
+            s = DASTDPSynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights, localized_normalization=True)
         else:
             raise RuntimeError("%s is not a valid synapse time, must be pair, triplet, or base" % (s_type))
 
