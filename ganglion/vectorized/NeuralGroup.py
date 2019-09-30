@@ -24,7 +24,7 @@ class NeuralGroup:
 
         # define the virtual shape of the neural group
         if field_shape is None:
-            self.field_shape = self.shape
+            self.field_shape = (self.shape[0],1)  # WARNING: NOT SURE IF THIS WILL CAUSE ISSUES
         else:
             self.field_shape = field_shape
 
@@ -419,43 +419,3 @@ class AdExNeuralGroup(ExLIFNeuralGroup):
             self.adap_track.append(self.w.copy())
         if "v_thr" in self.tracked_vars:
             self.v_thr_track.append(self.v_thr.copy())
-
-
-# class GhostNeuralGroup(NeuralGroup):
-#     """
-#     This class acts like a typical neural group, but is actually just a "window" into a subsection of an actual neural group, called the host,
-#     of which the ghost group takes on the properties. The GhostNeuralGroup can move around the neural field of the host group, taking on the properties
-#     of the neurons in which it is covering. This is useful for convolutional operations, and is necessary in order for a synaptic group to operate with 
-#     mobile synapses
-#     """
-#     def __init__(self, n_type: int, num: int, name: str, tki: TimeKeeperIterator, params: GhostParams, host_group: NeuralGroup, field_shape=None):
-#         super().__init__(n_type, num, name, tki, field_shape=field_shape)
-
-#         # the host neural group
-#         self.host_group = host_group
-#         # position of the zero'th element of the local ghost field in the host field, should be managed via external control
-#         self.local_position = np.zeros(self.host_group.ndim, dtype=int)
-#         # indices of ghosted neurons in the host group
-#         self.local_field = np.array([self.local_position[i]+self.field_shape[i] for i in range(self.host_group.ndim)], dtype=int)
-    
-#     def set_position(self, new_position):
-#         # make sure no negative values were given
-#         if new_position.any() < 0.0:
-#             raise IndexError("New position cannot be negative: %s" % str(new_position))
-#         # make sure non of the positions exceed the maximum size
-#         for index, s in np.ndenumerate(self.host_group.field_shape):
-#             if new_position[index] + self.field_shape[index] - 1 > s:
-#                 raise IndexError("New position of local field cannot exceed host group's field shape in any dimension: host dimension :: %s :: \
-#                     attempted position :: %s :: field shape :: %s" % (str(s), str(new_position[index]), str(self.field_shape)))
-        
-#         # assign the new position
-#         self.local_position = new_position
-
-#         # set the new local neural group
-#         self.set_local_field()
-  
-#     def set_local_field(self):
-#         # TODO: there has got to be a better way to do this
-#         self.local_field = np.array([self.local_position[i]+self.field_shape[i] for i in range(self.host_group.ndim)], dtype=int)
-
-
