@@ -141,12 +141,7 @@ class BaseSynapticGroup:
         for i in range(self.w.shape[1]):
             if self.localized_normalization:
                 unmasked_elements = np.where(self.weight_multiplier[:,i]==1)
-                # print(unmasked_elements)
-                # print(self.w[:,i])
-                # print(self.w[:,i][unmasked_elements])
                 self.w[:,i][unmasked_elements] = self.w[:,i][unmasked_elements] / self.w[:,i][unmasked_elements].sum()
-                # print(self.w[:,i])
-                # exit()
             else:
                 self.w[:,i] = self.w[:,i] / self.w[:,i].sum()
 

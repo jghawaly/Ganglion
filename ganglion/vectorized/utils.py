@@ -88,6 +88,13 @@ def add_noise(img, p=0.1):
     return img
 
 
+''' Other Stuff '''
+
+def goodprint(self, mat):
+    for i in range(mat.shape[0]):
+        print(np.array2string(mat[i], max_line_width=np.inf))
+
+
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
     # test the DOG filter on MNIST
