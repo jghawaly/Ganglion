@@ -56,7 +56,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Simulation of a neural network that learns to detect bars in an image.')
     parser.add_argument('--model', type=str, default='hslif', help='the neuron model to evaluate, if, lif, ftlif, exlif, adex, or hslif')
     parser.add_argument('--increment', type=float, default=1.0, help='time increment for numerical integration (milliseconds)')
-    parser.add_argument('--input_rate', type=float, default=20.0, help='maximum firing rate of input sensory neurons (Hz)')
+    parser.add_argument('--input_rate', type=float, default=120.0, help='maximum firing rate of input sensory neurons (Hz)')
     parser.add_argument('--stdp', type=str, default='pair', help='form of stdp to use, can be pair or triplet')
     parser.add_argument('--target_frequency', type=float, default=5, help='target frequency in Hz of neuron (only applicable to HSLIF neurons')
     parser.add_argument('--episodes', type=int, default=10000, help='number of episodes')
@@ -337,7 +337,18 @@ if __name__ == "__main__":
     plt.show()
 
     # -------------------------------------------------------
-    img = form_full_weight_map(g2, "g1", "g2", nn)
+    img1 = form_full_weight_map(g2, "g1", "g2", nn)
+    img2 = form_full_weight_map(g2, "g1", "g3", nn)
+    img3 = form_full_weight_map(g2, "g1", "g4", nn)
+    img4 = form_full_weight_map(g2, "g1", "g5", nn)
+    img5 = form_full_weight_map(g2, "g1", "g6", nn)
+    img6 = form_full_weight_map(g2, "g1", "g7", nn)
+    img7 = form_full_weight_map(g2, "g1", "g8", nn)
+    img8 = form_full_weight_map(g2, "g1", "g9", nn)
+    img9 = form_full_weight_map(g2, "g1", "g10", nn)
+
+    img = np.hstack((img1, img2, img3, img4, img5, img6, img7, img8, img9))
+
     plt.imshow(img)
     plt.title("Post-training weight matrix")
     plt.colorbar()
