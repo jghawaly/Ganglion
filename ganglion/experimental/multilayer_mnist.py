@@ -4,7 +4,7 @@ sys.path.append("../vectorized")
 from timekeeper import TimeKeeperIterator
 from NeuralGroup import SensoryNeuralGroup, IFNeuralGroup, LIFNeuralGroup, FTLIFNeuralGroup, ExLIFNeuralGroup, AdExNeuralGroup, HSLIFNeuralGroup
 from NeuralNetwork import NeuralNetwork
-from NetworkRunHandler import NetworkTrainingHandler
+from NetworkRunHandler import NetworkRunHandler
 from parameters import IFParams, LIFParams, FTLIFParams, ExLIFParams, AdExParams, HSLIFParams, DASTDPParams
 from units import *
 from utils import poisson_train, calculate_phi, load_mnist, add_noise
@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import argparse
 import random
 from collections import deque
+import os
 
 
 def sample_patch(img, rows, cols):
@@ -64,6 +65,8 @@ if __name__ == "__main__":
     parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
     parser.add_argument('--m', type=int, default=150, help='number of past rewards/accuracies to keep track of for averaging')
     parser.add_argument('--viz', action="store_true", help='run graphical version')
+    parser.add_argument('--load', action="store_true", help='load saved version')
+    parser.add_argument('--load_dir', type=str, default='../datasets', help='path to directory where saved weight matrices are stored')
 
     # parse user input
     args = parser.parse_args()
@@ -280,6 +283,9 @@ if __name__ == "__main__":
     nn.one_to_one_connect("gl", "gli", w_i=1.0, trainable=False)
     nn.fully_connect("gli", "gl", w_i=1.0, trainable=False, skip_one_to_one=True)
 
+    if args.load:
+        paths = [os.path.join(args.load_dir, fname) for fname in os.listdir(args.load_dir) if fname.endswith('.npy')]
+        nn.load_w(paths)
     # deque for tracking various things
     reward_history = deque(args.m*[0], args.m)
     reward_track = []  # list of average rewards
@@ -289,7 +295,7 @@ if __name__ == "__main__":
     avg_accuracy = 0
     num_metrics = 0  # number of times we have appended to the metrics arrays
 
-    nth = NetworkTrainingHandler(nn, 
+    nrh = NetworkRunHandler(nn, 
                                 train_data,
                                 train_labels,
                                 network_labels,
@@ -305,14 +311,15 @@ if __name__ == "__main__":
                                 save_dir="C:/Users/james/CODE/Ganglion/ganglion/datasets",
                                 reset_on_process=True,
                                 rewards=(-1.0, 1.0),
-                                data_pre_processor=resize)
+                                data_pre_processor=resize,
+                                training=False if args.load else True)
     if args.viz:
-        window = VizWindow(nth, no_show_inhib=True)
+        window = VizWindow(nrh, no_show_inhib=True)
         pyglet.app.run()
     else:
         running = True
         while running:
-            running, metrics = nth.run_episode()
+            running, metrics = nrh.run_episode()
             r, a, cs = metrics
             reward_history.append(r)
             accuracy_history.append(a)
@@ -322,7 +329,7 @@ if __name__ == "__main__":
                 avg_accuracy = sum(accuracy_history) / args.m 
                 reward_track.append(avg_reward)
                 accuracy_track.append(avg_accuracy)
-                print("Episode %s ::  Average Reward %.2f :: Average Accuracy %.2f :: Cummulative Spike Count %s" % (nth.current_episode-1, avg_reward, avg_accuracy, str(cs)))
+                print("Episode %s ::  Average Reward %.2f :: Average Accuracy %.2f :: Cummulative Spike Count %s" % (nrh.current_episode-1, avg_reward, avg_accuracy, str(cs)))
             else:
                 print("Building reward and accuracy history")
 

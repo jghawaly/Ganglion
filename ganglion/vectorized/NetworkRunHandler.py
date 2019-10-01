@@ -7,7 +7,7 @@ import os
 import numpy as np
 
 
-class NetworkTrainingHandler:
+class NetworkRunHandler:
     # output encoding mechanisms
     FIRST_OUTPUT_ENC = 0
     MAX_CUM_OUTPUT_ENC = 1  # NOTE: Not yet implemented
@@ -33,7 +33,8 @@ class NetworkTrainingHandler:
                        save_dir=None,
                        reset_on_process=True,
                        rewards=(-1.0, 1.0),
-                       data_pre_processor=None):
+                       data_pre_processor=None,
+                       training=True):
         # Network Properties
         self.nn = nn
         self.run_order = run_order
@@ -46,6 +47,7 @@ class NetworkTrainingHandler:
         self.data_pre_processor = data_pre_processor
 
         # Training data
+        self.training = training
         self.data_counter = -1
         self.training_data = training_data
         self.training_labels = training_labels
@@ -97,7 +99,7 @@ class NetworkTrainingHandler:
         """
         This method is called at the end of the initialization process
         """
-        if self.normalize_on_start:
+        if self.normalize_on_start and self.training:
             self.nn.normalize_weights()
     
     def on_end(self):
@@ -158,7 +160,8 @@ class NetworkTrainingHandler:
         reward = self.rewards[1] if correct else self.rewards[0]
         
         # puff some dopamine into the network
-        self.nn.dopamine_puff(reward, actions=action)
+        if self.training:
+            self.nn.dopamine_puff(reward, actions=action)
 
         # calculate accuracy
         acc = 1.0 if correct else 0.0
@@ -199,7 +202,7 @@ class NetworkTrainingHandler:
                     self.nn.reset()
 
                 # if requested, normalize the weights NOTE: Find a way to check here if the weights actually changed
-                if self.normalize_on_weight_change:
+                if self.normalize_on_weight_change and self.training:
                     self.nn.normalize_weights()
 
                 # if requested, zero out the additive frequency since we got spikes

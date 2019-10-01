@@ -77,6 +77,12 @@ class BaseSynapticGroup:
         """
         np.save(path, self.w)
     
+    def set_weights(self, weights):
+        """
+        Set the weights of the synaptic group with a numpy array
+        """
+        self.w = self.construct_weights(weights)
+    
     def construct_dt_matrix(self):
         """
         Construct the matrix that relates the rows of self.history to the elapsed time. This should

@@ -2,6 +2,7 @@ from SynapticGroup import BaseSynapticGroup, PairSTDPSynapticGroup, TripletSTDPS
 from NeuralGroup import SensoryNeuralGroup
 import numpy as np
 import multiprocessing
+import ntpath
 
 
 class NeuralNetwork  :
@@ -218,6 +219,21 @@ class NeuralNetwork  :
         
         return False
 
+    def load_w(self, paths):
+        """
+        Loads all weights in the network. File names must be of the format "g1_tag"_"g2_tag".npy
+        """
+        for path in paths:
+            w = np.load(path)
+            fname = ntpath.basename(path)
+            g1_tag = fname.split('_')[0]
+            g2_tag = fname.split('_')[1].replace('.npy', '')
+
+            for s in self.synapses:
+                if s.pre_n.name == g1_tag:
+                    if s.post_n.name == g2_tag:
+                        s.set_weights(w)
+                        
     def set_trainability(self, val: bool):
 
         """Set the trainability of the synaptic groups in this network"""

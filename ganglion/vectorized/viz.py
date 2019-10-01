@@ -123,7 +123,7 @@ class Viz:
                 
 
 class VizWindow(pyglet.window.Window):
-    def __init__(self, nth: NetworkTrainingHandler, no_show_inhib=False):
+    def __init__(self, nth: NetworkRunHandler, no_show_inhib=False):
         super().__init__(800, 800, resizable=True)
         self.keys = pyglet.window.key.KeyStateHandler()
         self.p = [-800, -800, -6000]
@@ -261,7 +261,7 @@ if __name__ == '__main__':
     network_labels = np.array([0,0,0,0])
     run_order = ('input', 'hidden', 'hidden_i', 'output')
 
-    nth = NetworkTrainingHandler(nn, 
+    nth = NetworkRunHandler(nn, 
                        training_data,
                        training_labels,
                        network_labels,
