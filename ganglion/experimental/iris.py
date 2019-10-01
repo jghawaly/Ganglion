@@ -83,13 +83,13 @@ if __name__ == "__main__":
 
 
     # Define neural groups
-    g1 = SensoryNeuralGroup(1, 4, "g1", tki, e_params)
+    g1 = SensoryNeuralGroup(1, 4, "g1", 1, tki, e_params)
 
-    g2 = model(1, 100, "g2", tki, e_params)
-    g2i = LIFNeuralGroup(0, 100, "g2i", tki, i_params)
+    g2 = model(1, 100, "g2", 2, tki, e_params)
+    g2i = LIFNeuralGroup(0, 100, "g2i", 2. tki, i_params)
 
-    g3 = model(1, 3, "g3", tki, e_params)
-    g3i = LIFNeuralGroup(0, 3, "g3i", tki, i_params)
+    g3 = model(1, 3, "g3", 3, tki, e_params)
+    g3i = LIFNeuralGroup(0, 3, "g3i", 3, tki, i_params)
 
 
     nn = NeuralNetwork([g1, g2, g2i, g3, g3i], "IRIS", tki)

@@ -91,8 +91,8 @@ if __name__ == "__main__":
 
     start = time.time()
 
-    g1 = SensoryNeuralGroup(1, args.grid_size * args.grid_size, "inputs", tki, params, field_shape=(args.grid_size, args.grid_size))
-    g2 = model(1, 1, "exc", tki, params)
+    g1 = SensoryNeuralGroup(1, args.grid_size * args.grid_size, "inputs", 1, tki, params, field_shape=(args.grid_size, args.grid_size))
+    g2 = model(1, 1, "exc", 2, tki, params)
 
     nn = NeuralNetwork([g1, g2], "stdp", tki)
     lp = stdp_params()

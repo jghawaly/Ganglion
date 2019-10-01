@@ -182,11 +182,11 @@ if __name__ == "__main__":
     i_params = LIFParams()
     i_params.v_thr = -65.0 * mvolt
 
-    g1 = SensoryNeuralGroup(1, 8, "1", tki, n_params)
-    g2 = HSLIFNeuralGroup(1, 4, "2", tki, n_params)
-    g2il = LIFNeuralGroup(0, 4, '2il', tki, i_params)
-    g3 = HSLIFNeuralGroup(1, 3, "3", tki, n_params)
-    g3il = LIFNeuralGroup(0, 3, '3il', tki, i_params)
+    g1 = SensoryNeuralGroup(1, 8, "1", 1, tki, n_params)
+    g2 = HSLIFNeuralGroup(1, 4, "2", 2, tki, n_params)
+    g2il = LIFNeuralGroup(0, 4, '2il', 2, tki, i_params)
+    g3 = HSLIFNeuralGroup(1, 3, "3", 3, tki, n_params)
+    g3il = LIFNeuralGroup(0, 3, '3il', 3, tki, i_params)
     nn = NeuralNetwork([g1, g2, g2il, g3, g3il], "catch", tki)
     
     lp = DASTDPParams()

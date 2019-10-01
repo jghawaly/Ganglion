@@ -13,7 +13,7 @@ class NeuralGroup:
     This class is a base template containing only items that are common among most neuron models. It 
     should be overriden, and does not run on its own.
     """
-    def __init__(self, n_type: int, num: int, name: str, tki: TimeKeeperIterator, field_shape=None):
+    def __init__(self, n_type: int, num: int, name: str, viz_layer: int, tki: TimeKeeperIterator, field_shape=None, viz_layer_pos=(0,0)):
         self.name = name  # the name of this neuron
         self.tki = tki  # the timekeeper isntance that is shared amongst the entire network
         
@@ -21,6 +21,8 @@ class NeuralGroup:
         self.n_num = num  # number of neurons in this group
         self.shape = (self.n_num,)  # shape/geometry of this neural group
         self.tracked_vars = []  # variables to be tracked throughout the course of evaluation
+        self.viz_layer = viz_layer
+        self.viz_layer_pos = viz_layer_pos
 
         # define the virtual shape of the neural group
         if field_shape is None:
@@ -72,8 +74,8 @@ class SensoryNeuralGroup(NeuralGroup):
     This class defines a group of "neurons" that are not really neurons, they simply send "spikes"
     when the user tells them too
     """
-    def __init__(self, n_type: int, num: int, name: str, tki: TimeKeeperIterator, params: IFParams, field_shape=None):
-        super().__init__(n_type, num, name, tki, field_shape=field_shape)
+    def __init__(self, n_type: int, num: int, name: str, viz_layer: int, tki: TimeKeeperIterator, params: IFParams, field_shape=None, viz_layer_pos=(0,0)):
+        super().__init__(n_type, num, name, viz_layer, tki, field_shape=field_shape, viz_layer_pos=viz_layer_pos)
 
         self.spike_count = np.zeros(self.shape, dtype=np.int)  # holds the NUMBER OF spikes that occured in the last evaluated time window
         self.v_spike = np.full(self.shape, params.v_spike)  # spike potential
@@ -120,8 +122,8 @@ class IFNeuralGroup(NeuralGroup):
     """
     This class defines a group of Integrate and Fire Neurons
     """
-    def __init__(self, n_type: int, num: int, name: str, tki: TimeKeeperIterator, params: IFParams, field_shape=None):
-        super().__init__(n_type, num, name, tki, field_shape=field_shape)
+    def __init__(self, n_type: int, num: int, name: str, viz_layer: int, tki: TimeKeeperIterator, params: IFParams, field_shape=None, viz_layer_pos=(0,0)):
+        super().__init__(n_type, num, name, viz_layer, tki, field_shape=field_shape, viz_layer_pos=viz_layer_pos)
         # custom parameters
         self.params = params
         self.refractory_period = np.full(self.shape, params.refractory_period)  # refractory period for these neurons
@@ -238,8 +240,8 @@ class LIFNeuralGroup(IFNeuralGroup):
     """
     This class defines a group of Leaky Integrate and Fire Neurons
     """
-    def __init__(self, n_type: int, num: int, name: str, tki: TimeKeeperIterator, params: LIFParams, field_shape=None, forced_wta=None):
-        super().__init__(n_type, num, name, tki, params=params, field_shape=field_shape)
+    def __init__(self, n_type: int, num: int, name: str, viz_layer: int, tki: TimeKeeperIterator, params: LIFParams, field_shape=None, forced_wta=None, viz_layer_pos=(0,0)):
+        super().__init__(n_type, num, name, viz_layer, tki, params=params, field_shape=field_shape, viz_layer_pos=viz_layer_pos)
         # Parameters from Brette and Gerstner (2005).
         self.tao_m = np.full(self.shape, params.tao_m)  # membrane time constant
     
@@ -260,8 +262,8 @@ class ExLIFNeuralGroup(LIFNeuralGroup):
     """
     This class defines a group of Leaky Integrate and Fire Neurons
     """
-    def __init__(self, n_type: int, num: int, name: str, tki: TimeKeeperIterator, params: ExLIFParams, field_shape=None):
-        super().__init__(n_type, num, name, tki, params=params, field_shape=field_shape)
+    def __init__(self, n_type: int, num: int, name: str, viz_layer: int, tki: TimeKeeperIterator, params: ExLIFParams, field_shape=None):
+        super().__init__(n_type, num, name, viz_layer, tki, params=params, field_shape=field_shape, viz_layer_pos=viz_layer_pos)
 
         # custom parameters
         self.sf = np.full(self.shape, params.sf)  # slope factor for exponential activation nonlinearity term
@@ -283,8 +285,8 @@ class FTLIFNeuralGroup(LIFNeuralGroup):
     """
     This class defines a group of Leaky Integrate and Fire Neurons with a floating threshold that acts as a firing-rate adaptation parameter
     """
-    def __init__(self, n_type: int, num: int, name: str, tki: TimeKeeperIterator, params: FTLIFParams, field_shape=None, forced_wta=False):
-        super().__init__(n_type, num, name, tki, params=params, field_shape=field_shape)
+    def __init__(self, n_type: int, num: int, name: str, viz_layer: int, tki: TimeKeeperIterator, params: FTLIFParams, field_shape=None, forced_wta=False, viz_layer_pos=(0,0)):
+        super().__init__(n_type, num, name, viz_layer, tki, params=params, field_shape=field_shape, viz_layer_pos=viz_layer_pos)
 
         # custom parameters
         self.tao_ft = params.tao_ft  # time constant of floating threshold decay
@@ -336,8 +338,8 @@ class HSLIFNeuralGroup(LIFNeuralGroup):
     This class defines a group of Leaky Integrate and Fire Neurons with Homeostasis that acts to regulate the firing threshold of the neuron in order to maintain 
     the average firing rate within a user-defined window.
     """
-    def __init__(self, n_type: int, num: int, name: str, tki: TimeKeeperIterator, params: HSLIFParams, field_shape=None):
-        super().__init__(n_type, num, name, tki, params=params, field_shape=field_shape)
+    def __init__(self, n_type: int, num: int, name: str, viz_layer: int, tki: TimeKeeperIterator, params: HSLIFParams, field_shape=None, viz_layer_pos=(0,0)):
+        super().__init__(n_type, num, name, viz_layer, tki, params=params, field_shape=field_shape, viz_layer_pos=viz_layer_pos)
 
         # custom parameters
         self.nip = params.nip
@@ -372,8 +374,8 @@ class AdExNeuralGroup(ExLIFNeuralGroup):
     This class defines a group of Adaptive Exponential Integrate and Fire Neurons, as described by Brette and Gerstner (2005). 
     NOTE: This model has problems and should not be used for practical networks
     """
-    def __init__(self, n_type: int, num: int, name: str, tki: TimeKeeperIterator, params: AdExParams, field_shape=None):
-        super().__init__(n_type, num, name, tki, params=params, field_shape=field_shape)
+    def __init__(self, n_type: int, num: int, name: str, viz_layer: int, tki: TimeKeeperIterator, params: AdExParams, field_shape=None, viz_layer_pos=(0,0)):
+        super().__init__(n_type, num, name, viz_layer, tki, params=params, field_shape=field_shape, viz_layer_pos=viz_layer_pos)
         self.a = np.full(self.shape, params.a)  # a parameter for AdEx model
         self.b = np.full(self.shape, params.b)  # b parameter for AdEx model
         self.tao_w = np.full(self.shape, params.tao_w)  # decay time constant for conductance adaptation parameter for AdEx model

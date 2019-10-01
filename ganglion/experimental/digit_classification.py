@@ -132,13 +132,13 @@ if __name__ == "__main__":
     e_params.tao_m = 100*msec
 
     # Define neural groups
-    g1 = SensoryNeuralGroup(1, 8*8, "g1", tki, e_params, field_shape=(8, 8))
+    g1 = SensoryNeuralGroup(1, 8*8, "g1", 1, tki, e_params, field_shape=(8, 8))
 
-    g2 = model(1, args.n * args.n, "g2", tki, e_params, field_shape=(args.n, args.n))
-    g2i = LIFNeuralGroup(0, args.n * args.n, "g2i", tki, i_params, field_shape=(args.n, args.n))
+    g2 = model(1, args.n * args.n, "g2", 2, tki, e_params, field_shape=(args.n, args.n))
+    g2i = LIFNeuralGroup(0, args.n * args.n, "g2i", 2, tki, i_params, field_shape=(args.n, args.n))
 
-    g3 = model(1, len(network_labels), "g3", tki, e_params)
-    g3i = LIFNeuralGroup(0, len(network_labels), "g3i", tki, i_params)
+    g3 = model(1, len(network_labels), "g3", 3, tki, e_params)
+    g3i = LIFNeuralGroup(0, len(network_labels), "g3i", 3, tki, i_params)
 
     # create neural network
     nn = NeuralNetwork([g1, g2, g2i, g3, g3i], "digit_learning", tki)

@@ -52,7 +52,7 @@ if __name__ == "__main__":
     else:
         raise RuntimeError("%s is not a valid neuron model, must be if, lif, ftlif, exlif, adex, or hslif." % args.model)
 
-    n = model(1, 1, "Neuron", tki, params)
+    n = model(1, 1, "Neuron", 1, tki, params)
     n.tracked_vars = ["v_m", "i_syn", "v_thr"]
 
     for step in tki:

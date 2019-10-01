@@ -1,6 +1,7 @@
-from NeuralGroup import HSLIFNeuralGroup, NeuralGroup, SensoryNeuralGroup
-from NeuralNetwork import NeuralNetwork
-from parameters import HSLIFParams
+from NeuralGroup import *
+from NeuralNetwork import *
+from NetworkRunHandler import *
+from parameters import *
 from timekeeper import TimeKeeperIterator
 from utils import poisson_train
 from units import *
@@ -11,22 +12,28 @@ import time
 import numpy as np
 
 
-class NeuralVis:
-    def __init__(self, window_width, window_height, nn: NeuralNetwork, grid_padding=50, layer_gap = 1000):
+class Viz:
+    def __init__(self, window_width, window_height, nn: NeuralNetwork, grid_padding=50, layer_gap = 1000, group_gap=500, no_show_inhib=False):
         g = nn.neural_groups[0]
         self.nn = nn
         self.layer_gap = layer_gap
+        self.group_gap = group_gap
 
         self.window_width = window_width
         self.window_height = window_height
         self.grid_padding = grid_padding
-        self.usable_width = window_width - (g.field_shape[1] + 1) * grid_padding
-        self.usable_height = window_height - (g.field_shape[0] + 1) * grid_padding
-        self.grid_width = self.usable_width // g.field_shape[1]
-        self.grid_height = self.usable_height // g.field_shape[0]
-        self.grid_depth = self.grid_width  # NOTE: This could be non-optimal
+        # self.usable_width = window_width - (g.field_shape[1] + 1) * grid_padding
+        # self.usable_height = window_height - (g.field_shape[0] + 1) * grid_padding
+        self.grid_width = 50
+        self.grid_height = 50
+        self.grid_depth = 50  
+        self.no_show_inhib = no_show_inhib
+
+        # colors
+        self.silver = (59, 65, 73)*4
+        self.yellow = (221, 206, 89)*4
     
-    def cube(self, origin, batch, fired):
+    def cube(self, origin, batch, data):
         # bottom face vertices
         cb = [origin[0],                   origin[1],                    origin[2],
               origin[0] + self.grid_width, origin[1],                    origin[2],
@@ -55,12 +62,16 @@ class NeuralVis:
               ct[9], ct[10], ct[11],
               cb[9], cb[10], cb[11]]
         
-        silver = (59, 65, 73)*4
-        yellow = (221, 206, 89)*4
-        if fired:
-            c = yellow
-        else:
-            c = silver
+        if data[0] == 'spike':
+            if data[1]:
+                c = self.yellow
+            else:
+                c = self.silver
+        elif data[0] == 'v_m':
+            if data[2]:
+                c =  self.yellow
+            else:
+                c = (int(255*data[1]), 0, 0)*4
         # add bottom face
         batch.add(4, pyglet.gl.GL_QUADS, None, ('v3i', cb), ('c3B', c))
         # add top face
@@ -76,62 +87,61 @@ class NeuralVis:
         # self.batch.add_indexed(4, pyglet.gl.GL_QUADS, None, (2, 6, 7, 3), ('v3i', c))
         batch.add(4, pyglet.gl.GL_QUADS, None, ('v3i', s4), ('c3B', c))
     
-    def draw_grid3d(self):
+    def draw_grid3d(self, mode='spike'):
         batch = pyglet.graphics.Batch()
-        i = 0
         for g in self.nn.neural_groups:
-            for c in range(g.field_shape[1]):
-                for r in range(g.field_shape[0]):
-                    spikes = np.reshape(g.spike_count.copy(), g.field_shape)
-                    # coordinates of bottom left corner of cube (origin)
-                    origin = (c*self.grid_width + (c + 1) * self.grid_padding, r*self.grid_height + (r+1) * self.grid_padding, i * self.layer_gap)
-                    if spikes[r, c] > 0:
-                        self.cube(origin, batch, True)
-                    else:
-                        self.cube(origin, batch, False)
-            i += 1
+            if self.no_show_inhib:
+                if g.n_type == 1:
+                    w = g.field_shape[1]
+                    h = g.field_shape[0]
+                    for c in range(w):
+                        for r in range(h):
+                            spikes = np.reshape(g.spike_count.copy(), g.field_shape)
+
+                            # neighbor_cols = self.nn.get_size_of_left_neighbor_group(g.name)
+                            # coordinates of bottom left corner of cube (origin)
+                            origin = ((g.viz_layer_pos[1] * self.group_gap) + c*self.grid_width + (c + 1) * self.grid_padding, 
+                                    r*self.grid_height + (r+1) * self.grid_padding, 
+                                    self.layer_gap * g.viz_layer)
+                                
+                            if mode == 'spike':
+                                self.cube(origin, batch, ('spike', True if spikes[r, c] > 0 else False))
+                            if mode == 'v_m':
+                                if g.__class__ != SensoryNeuralGroup:
+                                    # calculate percent of way to firing threshold
+                                    vm = g.v_m.reshape(g.field_shape)[r,c]
+                                    
+                                    ft = g.v_thr.reshape(g.field_shape)[r, c]
+                                    rest = g.v_r.reshape(g.field_shape)[r, c]
+                                    dec = np.abs(vm / (ft-rest))
+                                    
+                                    self.cube(origin, batch, ('v_m', dec, True if spikes[r, c] > 0 else False))
+                                else:
+                                    self.cube(origin, batch, ('spike', True if spikes[r, c] > 0 else False))
         
         batch.draw()
                 
 
-class NetworkRunHandler:
-    def __init__(self, tki: TimeKeeperIterator):
-        self.tki = tki
-        p = HSLIFParams()
-        p.tao_m = 100 * msec
-        g1 = SensoryNeuralGroup(1, 16, 'g1', tki, p, field_shape=(4, 4))
-        g2 = HSLIFNeuralGroup(1, 25, 'g2', tki, p, field_shape=(5, 5))
-        g3 = HSLIFNeuralGroup(1, 9, 'g3', tki, p, field_shape=(3, 3))
-        self.g = (g1, g2, g3)
-        self.run_order = ("g1", "g2", "g3")
-        self.nn = NeuralNetwork(self.g, 'nn1', tki)
-
-        self.nn.fully_connect('g1', 'g2', trainable=True, s_type='triplet')
-        self.nn.fully_connect('g2', 'g3', trainable=True, s_type='triplet')
-    
-    def run(self):
-        # inject spikes into sensory layer
-        self.g[0].run(poisson_train(np.random.randint(0, 2, size=(4,4)), self.tki.dt(), 600))
-
-        # run all layers
-        self.nn.run_order(self.run_order)
-
-        self.tki.__next__()
-        self.nn.normalize_weights()
-
-
-class Window(pyglet.window.Window):
-    def __init__(self, nrh: NetworkRunHandler):
-        super().__init__(800, 800)
+class VizWindow(pyglet.window.Window):
+    def __init__(self, nth: NetworkTrainingHandler, no_show_inhib=False):
+        super().__init__(800, 800, resizable=True)
         self.keys = pyglet.window.key.KeyStateHandler()
-        self.p = [-400, -400, -1000*len(nrh.nn.neural_groups)]
+        self.p = [-800, -800, -6000]
         self.r = [0, 0, 0]
-        self.nrh = nrh
-        self.neu_vis = NeuralVis(self.get_size()[0], self.get_size()[1], self.nrh.nn)
-        self.key_down = {'left': False, 'right': False, 'A': False, 'D': False, 'W': False, 'S': False}
+        self.nth = nth
+        self.neu_vis = Viz(self.get_size()[0], self.get_size()[1], self.nth.nn, no_show_inhib=no_show_inhib)
+        self.key_down = {'left': False, 'right': False, 'up': False, 'down': False, 'A': False, 'D': False, 'W': False, 'S': False}
 
-        pyglet.clock.schedule_interval(self.update, 1/300)
-        glEnable (GL_DEPTH_TEST)
+        self.mode = 'spike'
+
+        pyglet.clock.schedule_interval(self.update, 1/10000)
+        glEnable(GL_DEPTH_TEST)
+    
+    def on_resize(self, width, height):
+        super().on_resize(width, height)
+        # we meed to maintain aspect ratio on window resize
+        ratio = 1
+        self.set_size(width, width*ratio)
 
     def on_draw(self):
         if self.key_down['left']:
@@ -140,6 +150,12 @@ class Window(pyglet.window.Window):
         elif self.key_down['right']:
             # rotate camera right
             self.r[1] -= 1
+        elif self.key_down['up']:
+            # rotate camera up
+            self.r[0] -= 1
+        elif self.key_down['down']:
+            # rotate camera down
+            self.r[0] += 1
         elif self.key_down['A']:
             # move camera right
             self.p[0] -= 50
@@ -164,8 +180,9 @@ class Window(pyglet.window.Window):
 
         glTranslatef(*self.p)
         glRotatef(self.r[1], 0, 1, 0)
+        glRotatef(self.r[0], 1, 0, 0)
         # time.sleep(5
-        self.neu_vis.draw_grid3d()
+        self.neu_vis.draw_grid3d(mode=self.mode)
 
     def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
         
@@ -181,6 +198,10 @@ class Window(pyglet.window.Window):
             self.key_down['left'] = False
         elif symbol == pyglet.window.key.RIGHT:
             self.key_down['right'] = False
+        elif symbol == pyglet.window.key.UP:
+            self.key_down['up'] = False
+        elif symbol == pyglet.window.key.DOWN:
+            self.key_down['down'] = False
         elif symbol == pyglet.window.key.A:
             self.key_down['A'] = False
         elif symbol == pyglet.window.key.D:
@@ -195,6 +216,10 @@ class Window(pyglet.window.Window):
             self.key_down['left'] = True
         elif symbol == pyglet.window.key.RIGHT:
             self.key_down['right'] = True
+        elif symbol == pyglet.window.key.UP:
+            self.key_down['up'] = True
+        elif symbol == pyglet.window.key.DOWN:
+            self.key_down['down'] = True
         elif symbol == pyglet.window.key.A:
             self.key_down['A'] = True
         elif symbol == pyglet.window.key.D:
@@ -203,14 +228,43 @@ class Window(pyglet.window.Window):
             self.key_down['W'] = True
         elif symbol == pyglet.window.key.S:
             self.key_down['S'] = True
+        elif symbol == pyglet.window.key.V:
+            self.mode = 'v_m'
+        elif symbol == pyglet.window.key.P:
+            self.mode = 'spike'
     
     def update(self, dt):
-        self.nrh.run()
+        """
+        Loops over step() until the episode is over. Return True, metrics when it has finished running the episode AND we have not finished ALL episodes. When all
+        episodes are over, it returns False, metrics
+        """
+        running = self.nth.step()
         
- 
+
 
 if __name__ == '__main__':
-    tki = TimeKeeperIterator(0.1)
-    nrh = NetworkRunHandler(tki)
-    window = Window(nrh)
+    tki = TimeKeeperIterator(timeunit=0.1*msec)
+    g1 = SensoryNeuralGroup(1, 4, "input", 1, tki, LIFParams(), viz_layer_pos=(0,0))
+    g2 = LIFNeuralGroup(1, 4, "hidden", 2, tki, LIFParams(), viz_layer_pos=(0,0))
+    g2i = LIFNeuralGroup(0, 4, 'hidden_i', 2, tki, LIFParams(), viz_layer_pos=(0, 1))
+    g3 = LIFNeuralGroup(1, 4, "output", 3, tki, LIFParams(), viz_layer_pos=(0,0))
+
+    nn = NeuralNetwork([g1, g2, g2i, g3], "network", tki)
+
+    nn.fully_connect("input", "hidden", s_type='pair', w_i=0.1)
+    nn.one_to_one_connect('hidden', 'hidden_i', trainable=False, w_i=1.0)
+    nn.fully_connect('hidden_i', 'hidden', trainable=False, w_i=1.0, skip_one_to_one=True)
+    nn.fully_connect("hidden", "output", s_type='pair', w_i=0.1)
+
+    training_data = np.array([np.random.random((4,1))]*50)
+    training_labels = np.array([0]*50)
+    network_labels = np.array([0,0,0,0])
+    run_order = ('input', 'hidden', 'hidden_i', 'output')
+
+    nth = NetworkTrainingHandler(nn, 
+                       training_data,
+                       training_labels,
+                       network_labels,
+                       run_order, episodes=1000)
+    window = VizWindow(nth, no_show_inhib=True)
     pyglet.app.run()

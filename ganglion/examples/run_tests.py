@@ -16,9 +16,9 @@ print()
 tki = TimeKeeperIterator(timeunit=0.01*msec)
 duration = 5 * msec
 
-g1 = SensoryNeuralGroup(1, 4, "input", tki, LIFParams())
-g2 = LIFNeuralGroup(1, 4, "hidden", tki, LIFParams())
-g3 = LIFNeuralGroup(1, 4, "output", tki, LIFParams())
+g1 = SensoryNeuralGroup(1, 4, "input", 1, tki, LIFParams())
+g2 = LIFNeuralGroup(1, 4, "hidden", 2, tki, LIFParams())
+g3 = LIFNeuralGroup(1, 4, "output", 3, tki, LIFParams())
 g3.tracked_vars = ['i_syn']
 
 nn = NeuralNetwork([g1, g2, g3], "network", tki)
@@ -28,7 +28,7 @@ nn.fully_connect("hidden", "output", s_type='base', w_i=0.1)
 
 start_time = time.time()
 for step in tki:
-    g1.run(np.array([1,1,1,1]))
+    g1.run(np.array([1,1,1,1]).reshape(4, 1))
 
     nn.run_order(["input", "hidden", "output"])
 
@@ -51,9 +51,9 @@ print()
 tki = TimeKeeperIterator(timeunit=0.1*msec)
 duration = 500 * msec
 
-g1 = SensoryNeuralGroup(1, 4, "input", tki, LIFParams())
-g2 = LIFNeuralGroup(1, 4, "hidden", tki, LIFParams())
-g3 = LIFNeuralGroup(1, 4, "output", tki, LIFParams())
+g1 = SensoryNeuralGroup(1, 4, "input", 1, tki, LIFParams())
+g2 = LIFNeuralGroup(1, 4, "hidden", 2, tki, LIFParams())
+g3 = LIFNeuralGroup(1, 4, "output", 3, tki, LIFParams())
 g3.tracked_vars = ['i_syn']
 
 nn = NeuralNetwork([g1, g2, g3], "network", tki)
@@ -63,7 +63,7 @@ nn.fully_connect("hidden", "output", s_type='pair', w_i=0.1)
 
 start_time = time.time()
 for step in tki:
-    g1.run(np.array([1,0,1,0]))
+    g1.run(np.array([1,0,1,0]).reshape(4, 1))
 
     nn.run_order(["input", "hidden", "output"])
 
@@ -86,10 +86,10 @@ print()
 tki = TimeKeeperIterator(timeunit=0.1*msec)
 duration = 500 * msec
 
-g1 = SensoryNeuralGroup(1, 4, "input", tki, LIFParams())
-g2 = LIFNeuralGroup(1, 4, "hidden", tki, LIFParams())
-g2i = LIFNeuralGroup(1, 4, "hidden_i", tki, LIFParams())
-g3 = LIFNeuralGroup(1, 4, "output", tki, LIFParams())
+g1 = SensoryNeuralGroup(1, 4, "input", 1, tki, LIFParams())
+g2 = LIFNeuralGroup(1, 4, "hidden", 2, tki, LIFParams())
+g2i = LIFNeuralGroup(1, 4, "hidden_i", 2, tki, LIFParams())
+g3 = LIFNeuralGroup(1, 4, "output", 3, tki, LIFParams())
 g3.tracked_vars = ['i_syn']
 
 nn = NeuralNetwork([g1, g2, g2i, g3], "network", tki)
@@ -101,7 +101,7 @@ nn.fully_connect("hidden_i", "output", s_type='pair', w_i=0.1)
 
 start_time = time.time()
 for step in tki:
-    g1.run(np.array([1,0,1,0]))
+    g1.run(np.array([1,0,1,0]).reshape(4, 1))
 
     nn.run_order(["input", "hidden", "hidden_i", "output"])
 
@@ -125,9 +125,9 @@ print()
 tki = TimeKeeperIterator(timeunit=0.1*msec)
 duration = 500 * msec
 
-g1 = SensoryNeuralGroup(1, 4, "input", tki, LIFParams())
-g2 = LIFNeuralGroup(1, 4, "hidden", tki, LIFParams())
-g3 = LIFNeuralGroup(1, 4, "output", tki, LIFParams())
+g1 = SensoryNeuralGroup(1, 4, "input", 1, tki, LIFParams())
+g2 = LIFNeuralGroup(1, 4, "hidden", 2, tki, LIFParams())
+g3 = LIFNeuralGroup(1, 4, "output", 3, tki, LIFParams())
 g3.tracked_vars = ['i_syn']
 
 nn = NeuralNetwork([g1, g2, g3], "network", tki)
@@ -137,7 +137,7 @@ nn.fully_connect("hidden", "output", s_type='triplet', w_i=0.1)
 
 start_time = time.time()
 for step in tki:
-    g1.run(np.array([1,0,1,0]))
+    g1.run(np.array([1,0,1,0]).reshape(4, 1))
 
     nn.run_order(["input", "hidden", "output"])
 
@@ -160,10 +160,10 @@ print()
 tki = TimeKeeperIterator(timeunit=0.1*msec)
 duration = 500 * msec
 
-g1 = SensoryNeuralGroup(1, 4, "input", tki, LIFParams())
-g2 = LIFNeuralGroup(1, 4, "hidden", tki, LIFParams())
-g2i = LIFNeuralGroup(0, 4, "hidden_i", tki, LIFParams())
-g3 = LIFNeuralGroup(1, 4, "output", tki, LIFParams())
+g1 = SensoryNeuralGroup(1, 4, "input", 1, tki, LIFParams())
+g2 = LIFNeuralGroup(1, 4, "hidden", 2, tki, LIFParams())
+g2i = LIFNeuralGroup(0, 4, "hidden_i", 2, tki, LIFParams())
+g3 = LIFNeuralGroup(1, 4, "output", 3, tki, LIFParams())
 g3.tracked_vars = ['i_syn']
 
 nn = NeuralNetwork([g1, g2, g2i, g3], "network", tki)
@@ -175,7 +175,7 @@ nn.fully_connect("hidden_i", "output", s_type='triplet', w_i=0.1)
 
 start_time = time.time()
 for step in tki:
-    g1.run(np.array([1,0,1,0]))
+    g1.run(np.array([1,0,1,0]).reshape(4, 1))
 
     nn.run_order(["input", "hidden", "hidden_i", "output"])
 

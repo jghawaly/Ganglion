@@ -25,6 +25,24 @@ class NeuralNetwork  :
 
         raise ValueError("There is no NeuralGroup with the name %s in this NeuralNetwork." % tag)
 
+    def get_size_of_left_neighbor_group(self, tag):
+        """
+        Get the size of the neighboring group to the left of the given neural group. this is for visual layour in Viz
+        """
+        # get the neural group we were given the tag for
+        g = self.g(tag)
+
+        # get the column position of this group in the layer
+        c = g.viz_layer_pos[1]
+
+        # find the group in the network with c = c - 1
+        for g2 in self.neural_groups:
+            if g2.viz_layer_pos[1] == c - 1:
+                return g2.field_shape[1]
+        
+        # if this is the first one, then there is zero gap
+        return 0
+
     def fully_connect(self, g1_tag, g2_tag, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9, skip_one_to_one=False, s_type='pair', loaded_weights=None):
         """
         Connect all of the neurons in g1 to every neuron in g2 with a given probability.

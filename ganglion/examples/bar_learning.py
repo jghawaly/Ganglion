@@ -109,9 +109,9 @@ if __name__ == "__main__":
     i_params.v_thr = -60.0 * mvolt
 
 
-    g1 = SensoryNeuralGroup(1, args.grid_size * args.grid_size, "inputs", tki, e_params, field_shape=(args.grid_size, args.grid_size))
-    g2 = model(1, 16, "exc", tki, e_params, field_shape=(4,4))
-    g3 = LIFNeuralGroup(0, 16, "inh_lateral", tki, i_params, field_shape=(4,4))
+    g1 = SensoryNeuralGroup(1, args.grid_size * args.grid_size, "inputs", 1, tki, e_params, field_shape=(args.grid_size, args.grid_size))
+    g2 = model(1, 16, "exc", 2, tki, e_params, field_shape=(4,4))
+    g3 = LIFNeuralGroup(0, 16, "inh_lateral", 3, tki, i_params, field_shape=(4,4))
 
     nn = NeuralNetwork([g1, g2, g3], "bar_learner", tki)
     lp = stdp_params

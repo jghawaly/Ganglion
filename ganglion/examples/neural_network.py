@@ -52,9 +52,9 @@ if __name__ == "__main__":
     else:
         raise RuntimeError("%s is not a valid neuron model, must be if, lif, ftlif, exlif, adex, or hslif." % args.model)
     
-    g1 = SensoryNeuralGroup(1, args.num_input_neurons, "input", tki, params)
-    g2 = model(1, args.num_hidden_neurons, "hidden", tki, params)
-    g3 = model(1, args.num_output_neurons, "output", tki, params)
+    g1 = SensoryNeuralGroup(1, args.num_input_neurons, "input", 1, tki, params)
+    g2 = model(1, args.num_hidden_neurons, "hidden", 2, tki, params)
+    g3 = model(1, args.num_output_neurons, "output", 3, tki, params)
     g3.tracked_vars = ["v_m", "i_syn"]
 
     nn = NeuralNetwork([g1, g2, g3], "blah", tki)
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     
     for step in tki:
         # inject spikes into sensory layer
-        g1.run(poisson_train(np.ones(args.num_input_neurons, dtype=float), tki.dt(), args.input_rate))
+        g1.run(poisson_train(np.ones(args.num_input_neurons, dtype=float).reshape(args.num_input_neurons, 1), tki.dt(), args.input_rate))
         # run all layers
         nn.run_order(["input", "hidden", "output"])
         
