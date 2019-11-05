@@ -10,8 +10,7 @@ import numpy as np
 class NetworkRunHandler:
     # output encoding mechanisms
     FIRST_OUTPUT_ENC = 0
-    MAX_CUM_OUTPUT_ENC = 1  # NOTE: Not yet implemented
-    POISSON_CUM_OUTPUT_ENC = 2  # NOTE: Not yet implemented
+    CONTINUOUS_OUTPUT_ENC = 1
     
     def __init__(self, nn: NeuralNetwork, 
                        training_data,
@@ -34,7 +33,10 @@ class NetworkRunHandler:
                        reset_on_process=True,
                        rewards=(-1.0, 1.0),
                        data_pre_processor=None,
-                       training=True):
+                       training=True,
+                       exposure_hits=10,
+                       output_is_ftm=False,
+                       ftm_supervised=False):
         # Network Properties
         self.nn = nn
         self.run_order = run_order
@@ -42,6 +44,12 @@ class NetworkRunHandler:
         self.dt = self.tki.dt()
         self.network_labels = network_labels
         self.output_encoding = output_encoding
+        self.exposure_hits = exposure_hits  # only used in continuous output encoding mode
+        self.hit_count = 0  # only used if continuous output encoding mode
+
+        # Network Properties When Output is FTM
+        self.output_is_ftm = output_is_ftm
+        self.ftm_supervised = ftm_supervised
 
         # Data pre-processors
         self.data_pre_processor = data_pre_processor
@@ -64,6 +72,7 @@ class NetworkRunHandler:
             self.episodes = episodes
         self.current_episode = 0
         self.time_since_eval = 0
+        self.output_oversaturated = False  # sets to True on multiple, simultaneous spike
 
         # Additive frequency 
         self.enable_additive_frequency = enable_additive_frequency
@@ -147,6 +156,9 @@ class NetworkRunHandler:
         if self.data_pre_processor is not None:
             self.current_input = self.data_pre_processor(self.current_input)
 
+        if self.output_is_ftm:
+            self.nn.neural_groups[-1].reset_ftm()
+
     def on_process_output(self):
         """
         Called when we need to process the output of the network
@@ -162,6 +174,8 @@ class NetworkRunHandler:
         # puff some dopamine into the network
         if self.training:
             self.nn.dopamine_puff(reward, actions=action)
+            if self.output_is_ftm:
+                self.nn.neural_groups[-1].ftm_mod(self.current_label, self.network_labels[action], supervised=self.ftm_supervised)
 
         # calculate accuracy
         acc = 1.0 if correct else 0.0
@@ -193,33 +207,86 @@ class NetworkRunHandler:
         
         # check first spike output
         if self.output_encoding == self.__class__.FIRST_OUTPUT_ENC:
-            if self.cummulative_spikes.sum() > 0 and np.count_nonzero(self.cummulative_spikes == self.cummulative_spikes.max()) == 1:
-                # process our output spikes
-                r, a = self.on_process_output()
+            if self.cummulative_spikes.sum() > 0:
+                if  np.count_nonzero(self.cummulative_spikes == self.cummulative_spikes.max()) == 1:
+                    # process our output spikes
+                    r, a = self.on_process_output()
 
-                # if requested, reset the network
-                if self.reset_on_process:
+                    # if requested, reset the network
+                    if self.reset_on_process:
+                        self.nn.reset()
+
+                    # if requested, normalize the weights
+                    if self.normalize_on_weight_change and self.training:
+                        self.nn.normalize_weights()
+
+                    # if requested, zero out the additive frequency since we got spikes
+                    if self.enable_additive_frequency:
+                        self.ft_add = 0
+                    
+                    # set metrics
+                    self.metrics = (r, a, self.cummulative_spikes.sum())
+
+                    # get our next input
+                    self.on_post_process()
+
+                    return False
+                else:
                     self.nn.reset()
-
-                # if requested, normalize the weights NOTE: Find a way to check here if the weights actually changed
-                if self.normalize_on_weight_change and self.training:
-                    self.nn.normalize_weights()
-
-                # if requested, zero out the additive frequency since we got spikes
-                if self.enable_additive_frequency:
-                    self.ft_add = 0
-                
-                # set metrics
-                self.metrics = (r, a, self.cummulative_spikes.sum())
-
-                # get our next input
-                self.on_post_process()
-
-                return False
             else:
                 # if requested, perform additive frequency
                 if self.enable_additive_frequency:
                     self.on_additive_frequency()
+        
+        if self.output_encoding == self.__class__.CONTINUOUS_OUTPUT_ENC:
+            if self.cummulative_spikes.sum() > 0:
+                c = np.count_nonzero(self.cummulative_spikes == self.cummulative_spikes.max())
+                if c == 1:
+                    # increase hit count
+                    self.hit_count += 1
+
+                    # process our output spikes
+                    r, a = self.on_process_output()
+
+                    # if requested, normalize the weights
+                    if self.normalize_on_weight_change and self.training:
+                        self.nn.normalize_weights()
+                    
+                    # if requested, zero out the additive frequency since we got spikes
+                    if self.enable_additive_frequency:
+                        self.ft_add = 0
+                    
+                    # set metrics
+                    self.metrics = (r, a, self.cummulative_spikes.sum())
+
+                    # clear out cummulative spike array
+                    self.cummulative_spikes.fill(0)
+
+                    if self.hit_count == self.exposure_hits:
+                        self.nn.reset()
+                        self.on_post_process()
+                        self.hit_count = 0
+                        return False
+                    
+                    # output not saturated
+                    self.output_oversaturated = False
+                elif c > 1:
+                    if self.output_is_ftm and self.training:
+                        self.nn.neural_groups[-1].ftm_mod(self.current_label, None, supervised=self.ftm_supervised)
+                    # forget everything that just happened
+                    self.nn.reset()
+                    # clear out cummulative spike array
+                    self.cummulative_spikes.fill(0)
+                    # set saturation flag to True
+                    self.output_oversaturated = True
+            else:
+                # if requested, perform additive frequency
+                if self.enable_additive_frequency and not self.output_oversaturated:
+                    self.on_additive_frequency()
+                    # reset saturation
+                    self.output_oversaturated = False
+
+
         # inject spikes into sensory layer
         self.nn.neural_groups[0].run(poisson_train(self.current_input, self.dt, self.base_input_frequency + self.ft_add))
 
@@ -228,7 +295,6 @@ class NetworkRunHandler:
 
         # accumulate output spikes
         self.cummulative_spikes += self.nn.neural_groups[-1].spike_count
-        # print(self.cummulative_spikes)
 
         return True
     
@@ -242,7 +308,7 @@ class NetworkRunHandler:
             self.on_end()
             return False, self.metrics
 
-        # whilw we are running an episode, wait
+        # while we are running an episode, wait
         running = True
         while running:
             running = self.step()

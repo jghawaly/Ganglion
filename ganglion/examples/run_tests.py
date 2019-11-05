@@ -81,7 +81,7 @@ print("Test  ::  %s  ::  Total synaptic current  ::  %g  ::  Expected synaptic c
 # -------------------------------------------------------------------------------------------------------
 
 print()
-print("Running Test :: Pair STDP Network with Manual Inhibition...")
+print("Running Test :: Pair STDP Network with Group-Based Inhibition...")
 print()
 tki = TimeKeeperIterator(timeunit=0.1*msec)
 duration = 500 * msec
@@ -155,7 +155,7 @@ print("Test  ::  %s  ::  Total synaptic current  ::  %g  ::  Expected synaptic c
 # -------------------------------------------------------------------------------------------------------
 
 print()
-print("Running Test :: Triplet STDP Network with Manual Inhibition...")
+print("Running Test :: Triplet STDP Network with Group-Based Inhibition...")
 print()
 tki = TimeKeeperIterator(timeunit=0.1*msec)
 duration = 500 * msec

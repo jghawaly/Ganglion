@@ -430,3 +430,45 @@ class DASTDPSynapticGroup(BaseSynapticGroup):
         # reset eligibility traces
         self.ab_et.fill(0)
         self.ba_et.fill(0)
+
+
+class InhibitorySynapticGroup(BaseSynapticGroup):
+    def __init__(self, pre_n, post_n, tki, initial_w=None, w_rand_min=0.0, w_rand_max=1.0, syn_params=None, weight_multiplier=None, loaded_weights=None, localized_normalization=False):
+        super().__init__(pre_n, post_n, tki, initial_w=initial_w, w_rand_min=w_rand_min, w_rand_max=w_rand_max, syn_params=syn_params, weight_multiplier=weight_multiplier, loaded_weights=loaded_weights, trainable=False, localized_normalization=localized_normalization)
+        # precalculate part of the synaptic current calculation, this is the only change apart from the BaseSynapticGroup initialization, due to having to set the gbar to the inhibitory gbar, regardless of whether or not the NeuralGroup is inhibitory
+        self.p_term = self.precalculate_term()  
+
+    def calc_isyn(self):
+        """
+        Calculate the current flowing across this synaptic group, as a function of the spike history.
+        The only difference between this one and the BaseSynapticGroup is that in this implementation, the presynaptic reversal potential is ALWAYS the inhibitory reversal potential. This allows us to bypass the need for an extra neuralgroup
+        for self-inhibition
+        """
+        v_m_post = np.zeros((self.m, self.n), dtype=np.float)
+        v_rev_pre = np.zeros((self.m, self.n), dtype=np.float)
+
+        v_m_post[:] = self.post_n.v_m
+        v_rev_pre.T[:] = self.pre_n.vrev_i
+        v_term = v_rev_pre-v_m_post
+
+        i_syn = np.zeros(self.n, dtype=np.float)
+        for k in range(self.num_histories):
+            hist_k = self.history[k]
+            p_term_k = self.p_term[:, k][np.newaxis].transpose()
+            i_current = np.dot(hist_k, self.w*p_term_k*v_term)
+            i_syn += i_current
+        
+        return i_syn
+    
+    def precalculate_term(self):
+        delta_t = np.zeros(self.num_histories, dtype=float)
+        times = np.arange(1, self.num_histories+1, 1) * self.tki.dt()
+        for idx, val in np.ndenumerate(times):
+            delta_t[idx] = val
+
+        alpha_time = delta_t / self.synp.tao_syn * np.exp(-1.0 * delta_t / self.synp.tao_syn)
+
+        gbar_pre = np.zeros(self.m, dtype=np.float).transpose()
+        gbar_pre[:] = self.pre_n.params.gbar_i
+
+        return np.outer(gbar_pre.transpose(), alpha_time)

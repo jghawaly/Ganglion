@@ -308,7 +308,7 @@ if __name__ == "__main__":
                                 noise_probability=args.np,
                                 episodes=args.episodes,
                                 save_at_end=True,
-                                save_dir="C:/Users/james/CODE/Ganglion/ganglion/datasets",
+                                save_dir="C:/Users/james/CODE/Ganglion/ganglion/datasets/all",
                                 reset_on_process=True,
                                 rewards=(-1.0, 1.0),
                                 data_pre_processor=resize,

@@ -1,4 +1,4 @@
-from SynapticGroup import BaseSynapticGroup, PairSTDPSynapticGroup, TripletSTDPSynapticGroup, DASTDPSynapticGroup
+from SynapticGroup import BaseSynapticGroup, PairSTDPSynapticGroup, TripletSTDPSynapticGroup, DASTDPSynapticGroup, InhibitorySynapticGroup
 from NeuralGroup import SensoryNeuralGroup
 import numpy as np
 import multiprocessing
@@ -65,6 +65,8 @@ class NeuralNetwork  :
             s = BaseSynapticGroup(g1, g2, self.tki, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights)
         elif s_type == 'da':
             s = DASTDPSynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights)
+        elif s_type == 'inhib':
+            s = InhibitorySynapticGroup(g1, g2, self.tki, initial_w=w_i, w_rand_min=minw, w_rand_max=maxw, syn_params=syn_params, weight_multiplier=wm, loaded_weights=loaded_weights)
         else:
             raise RuntimeError("%s is not a valid synapse time, must be pair, triplet, or base" % (s_type))
 
@@ -96,6 +98,8 @@ class NeuralNetwork  :
             s = BaseSynapticGroup(g1, g2, self.tki, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights)
         elif s_type == 'da':
             s = DASTDPSynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights)
+        elif s_type == 'inhib':
+            s = InhibitorySynapticGroup(g1, g2, self.tki, initial_w=w_i, w_rand_min=minw, w_rand_max=maxw, syn_params=syn_params, weight_multiplier=wm, loaded_weights=loaded_weights)
         else:
             raise RuntimeError("%s is not a valid synapse time, must be pair, triplet, or base" % (s_type))
 
@@ -134,16 +138,15 @@ class NeuralNetwork  :
         if a_cols < b_cols:
             raise ValueError("The number of columns in matrix B must be greater than or equal to the number of columns in matrix A")
         if not num_strides_col.is_integer():
-            raise ValueError("Uneven column stride")
+            raise ValueError("Uneven column stride: %s" % str(num_strides_col))
         if not num_strides_row.is_integer():
-            raise ValueError("Uneven row stride")
+            raise ValueError("Uneven row stride: %s" % str(num_strides_row))
         # convert our number of strides to integers, we couldn't do this before, since we wanted to check if the
         # strides were valid based on whether or not they evaluated to whole numbers
         num_strides_row = int(num_strides_row)
         num_strides_col = int(num_strides_col)
         # based on the number of strides, calculate the expected shape of group 2
         expected_shape = (num_strides_row, num_strides_col)
-        print(expected_shape)
         if g2.field_shape != expected_shape:
             raise ValueError("Given shape of matrix B does not match expected shape: expected shape :: %s :: given shape :: %s" %(str(expected_shape), str(g2.field_shape)))
 
@@ -172,12 +175,38 @@ class NeuralNetwork  :
             s = BaseSynapticGroup(g1, g2, self.tki, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights, localized_normalization=True)
         elif s_type == 'da':
             s = DASTDPSynapticGroup(g1, g2, self.tki, trainable=trainable, stdp_params=stdp_params, syn_params=syn_params, w_rand_min=minw, w_rand_max=maxw, weight_multiplier=wm, initial_w=w_i, loaded_weights=loaded_weights, localized_normalization=True)
+        elif s_type == 'inhib':
+            s = InhibitorySynapticGroup(g1, g2, self.tki, initial_w=w_i, w_rand_min=minw, w_rand_max=maxw, syn_params=syn_params, weight_multiplier=wm, loaded_weights=loaded_weights, localized_normalization=True)
         else:
             raise RuntimeError("%s is not a valid synapse time, must be pair, triplet, or base" % (s_type))
 
         # store the new synaptic group into memory
         self.synapses.append(s)
 
+    def multi_fully_connect(self, pre_tags, post_tags, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9, skip_one_to_one=False, s_type='pair', loaded_weights=None):
+        """
+        Convenience function for connecting all groups in pre_tags to all groups in post_tags in the same way, with the same parameters
+        """
+        for pre_tag in pre_tags:
+            for post_tag in post_tags:
+                self.fully_connect(pre_tag, post_tag, trainable=trainable, w_i=w_i, stdp_params=stdp_params, syn_params=syn_params, minw=minw, maxw=maxw, skip_one_to_one=skip_one_to_one, s_type=s_type, loaded_weights=loaded_weights)
+    
+    def multi_one_to_one_connect(self, pre_tags, post_tags, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9, s_type='pair', loaded_weights=None):
+        """
+        Convenience function for connecting all groups in pre_tags to all groups in post_tags in the same way, with the same parameters
+        """
+        for pre_tag in pre_tags:
+            for post_tag in post_tags:
+                self.one_to_one_connect(pre_tag, post_tag, trainable=trainable, w_i=w_i, stdp_params=stdp_params, syn_params=syn_params, minw=minw, maxw=maxw, s_type=s_type, loaded_weights=loaded_weights)
+    
+    def multi_local_connect(self, pre_tags, post_tags, kernel, rstride, cstride, trainable=True, w_i=None, stdp_params=None, syn_params=None, minw=0.01, maxw=0.9, s_type='pair', loaded_weights=None):
+        """
+        Convenience function for connecting all groups in pre_tags to all groups in post_tags in the same way, with the same parameters
+        """
+        for pre_tag in pre_tags:
+            for post_tag in post_tags:
+                self.local_connect(pre_tag, post_tag, kernel, rstride, cstride, trainable=trainable, w_i=w_i, stdp_params=stdp_params, syn_params=syn_params, minw=minw, maxw=maxw, s_type=s_type, loaded_weights=loaded_weights)
+    
     def get_w_between_g_and_g(self, g1_tag, g2_tag):
         """
         Returns the weight matrix between two neural groups
@@ -235,9 +264,7 @@ class NeuralNetwork  :
                         s.set_weights(w)
                         
     def set_trainability(self, val: bool):
-
         """Set the trainability of the synaptic groups in this network"""
-
         for s in self.synapses:
             s.trainable = val
     
@@ -259,7 +286,7 @@ class NeuralNetwork  :
                         # s2.roll_history_and_assign(g.spike_count) 
                         s2.pre_fire_notify(g.spike_count)
             else:
-                i = 0#np.zeros(g.shape, dtype=np.float)
+                i = 0
                 # calculate total input current
                 for s in self.synapses:
                     # if this synapse group is presynaptic, then calculate the current coming across it and run that current through the current neural group

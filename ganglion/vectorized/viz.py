@@ -13,7 +13,7 @@ import numpy as np
 
 
 class Viz:
-    def __init__(self, window_width, window_height, nn: NeuralNetwork, grid_padding=50, layer_gap = 1000, group_gap=500, no_show_inhib=False):
+    def __init__(self, window_width, window_height, nn: NeuralNetwork, grid_padding=50, layer_gap = 1000, group_gap=1000, no_show_inhib=False):
         g = nn.neural_groups[0]
         self.nn = nn
         self.layer_gap = layer_gap
@@ -98,10 +98,9 @@ class Viz:
                         for r in range(h):
                             spikes = np.reshape(g.spike_count.copy(), g.field_shape)
 
-                            # neighbor_cols = self.nn.get_size_of_left_neighbor_group(g.name)
                             # coordinates of bottom left corner of cube (origin)
                             origin = ((g.viz_layer_pos[1] * self.group_gap) + c*self.grid_width + (c + 1) * self.grid_padding, 
-                                    r*self.grid_height + (r+1) * self.grid_padding, 
+                                    (g.viz_layer_pos[0] * self.group_gap) + r*self.grid_height + (r+1) * self.grid_padding, 
                                     self.layer_gap * g.viz_layer)
                                 
                             if mode == 'spike':
@@ -158,16 +157,16 @@ class VizWindow(pyglet.window.Window):
             self.r[0] += 1
         elif self.key_down['A']:
             # move camera right
-            self.p[0] -= 50
+            self.p[0] -= 80
         elif self.key_down['D']:
             # move camera left
-            self.p[0] += 50
+            self.p[0] += 80
         elif self.key_down['W']:
             # move camera down
-            self.p[1] += 50
+            self.p[1] += 80
         elif self.key_down['S']:
             # move camera up
-            self.p[1] -= 50
+            self.p[1] -= 80
 
         self.clear()
         
@@ -188,10 +187,10 @@ class VizWindow(pyglet.window.Window):
         
         if scroll_y < 0:
             # zoom in
-            self.p[2] += 100
+            self.p[2] += 200
         else:
             # zoom out
-            self.p[2] -= 100
+            self.p[2] -= 200
 
     def on_key_release(self, symbol, modifiers):
         if symbol == pyglet.window.key.LEFT:

@@ -31,6 +31,13 @@ class LIFParams(IFParams):
         self.tao_m = 9.37 * msec
 
 
+class FTMLIFParams(LIFParams):
+    def __init__(self):
+        super().__init__()
+        self.dftm = 0.1
+        self.tao_ftm = 100.0 * msec
+        self.min_above_rest = 0.01
+
 class FTLIFParams(LIFParams):
     def __init__(self):
         super().__init__()

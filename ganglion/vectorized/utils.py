@@ -2,25 +2,95 @@ import numpy as np
 from tensorflow.examples.tutorials.mnist import input_data
 import cv2
 import numpy.random as nprand
+import os
 
 
 ''' Dataset Stuff '''
+
+class StructuredMNIST:
+    """ NOTE: This was kind of hacked together and may have issues """
+    def __init__(self, pattern, digits=(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)):
+        self.train_data, self.train_labels, _, _ = load_mnist()
+        self.pattern = pattern
+
+        self.digit_indices = {}
+        self.digit_counter = {}
+        self.digit_total = {}
+        for digit in digits:
+            self.digit_indices[digit] = np.where(self.train_labels==digit)[0]
+            self.digit_counter[digit] = 0
+            self.digit_total[digit] = self.digit_indices[digit].shape[0]
+        self.pattern_counter = 0
+    
+    def next(self):
+        """ Get the next digit. This will keep looping over the dataset without stopping. The caller should
+            set the stopping conditions
+        """
+        # get the next pattern digit
+        p = self.pattern[self.pattern_counter]
+        # get the current counter for this digit
+        c = self.digit_counter[p]
+        # get the index of this digit in the train_data
+        i = self.digit_indices[p][c]
+        # get the digit
+        d = self.train_data[i]
+        # get the label
+        l = self.train_labels[i]
+        # iterate the  digit counter
+        self.digit_counter[p] = self.digit_counter[p] + 1 if self.digit_counter[p] + 1 < self.digit_total[p] else 0
+        # iterate the pattern counter
+        self.pattern_counter = self.pattern_counter + 1 if self.pattern_counter + 1 < len(self.pattern) else 0
+
+        return d, l
+    
+    def all(self):
+        """Get complete re-ordered dataset. Warning, this can be memory intensive"""
+        train = []
+        label = []
+
+        num_mnist = self.train_data.shape[0]
+        count = 0
+        while count < num_mnist:
+            d, l = self.next()
+            train.append(d)
+            label.append(l)
+            count += 1
+        
+        train = np.array(train, dtype=np.float)
+        label = np.array(label, dtype=np.int)
+
+        return train, label
+
+
 
 def load_mnist(dataset_dir='../datasets/mnist/'):
     """
     Load MNIST dataset through tensorflow into numpy arrays. Images are normalized.
     """
-    mnist_data = input_data.read_data_sets(dataset_dir, one_hot=False)
+    if not "train_data.npy" in os.listdir(dataset_dir):
+        mnist_data = input_data.read_data_sets(dataset_dir, one_hot=False)
 
-    # train_data = np.vstack([img.reshape(-1,) for img in mnist_data.train.images])
-    train_data = np.array([np.reshape(i, (28, 28)) for i in mnist_data.train.images])
-    train_labels = mnist_data.train.labels
+        train_data = np.array([np.reshape(i, (28, 28)) for i in mnist_data.train.images])
+        train_labels = mnist_data.train.labels
 
-    # test_data = np.vstack([img.reshape(-1,) for img in mnist_data.test.images])
-    test_data =  np.array([np.reshape(i, (28, 28)) for i in mnist_data.test.images])
-    test_labels = mnist_data.test.labels
+        test_data =  np.array([np.reshape(i, (28, 28)) for i in mnist_data.test.images])
+        test_labels = mnist_data.test.labels
 
-    return train_data, train_labels, test_data, test_labels
+        # save the binary data so that we don't have to keep using tensorflow in the future
+        np.save(os.path.join(dataset_dir, 'train_data.npy'), train_data)
+        np.save(os.path.join(dataset_dir, 'train_labels.npy'), train_labels)
+        np.save(os.path.join(dataset_dir, 'test_data.npy'), test_data)
+        np.save(os.path.join(dataset_dir, 'test_labels.npy'), test_labels)
+
+        return train_data, train_labels, test_data, test_labels
+    else:
+        # just load the data if we already have the binary saved
+        train_data = np.load(os.path.join(dataset_dir, 'train_data.npy'))
+        train_labels = np.load(os.path.join(dataset_dir, 'train_labels.npy'))
+        test_data = np.load(os.path.join(dataset_dir, 'test_data.npy'))
+        test_labels = np.load(os.path.join(dataset_dir, 'test_labels.npy'))
+
+        return train_data, train_labels, test_data, test_labels
 
 
 ''' Neural Network Stuff '''
@@ -68,7 +138,7 @@ def save_img(path, image, normalize=False):
     cv2.imwrite(path, image)
 
 
-def dog_filter(img, gauss1_size=(3,3), gauss2_size=(5,5), gauss_std1=0, gauss_std2=0):
+def dog_filter(img, gauss1_size=(7,7), gauss2_size=(9,9), gauss_std1=0, gauss_std2=0):
     # perform Gaussian blurring at two different kernel sizes
     gauss1 = cv2.GaussianBlur(img, gauss1_size, gauss_std1)
     gauss2 = cv2.GaussianBlur(img, gauss2_size, gauss_std2)
@@ -97,17 +167,15 @@ def goodprint(self, mat):
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
-    # test the DOG filter on MNIST
-
-    # load the MNIST dataset
-    train_data, train_labels, test_data, test_labels = load_mnist()
-
-    for x in range(1000):
-        img = add_noise(train_data[x])
-        # img = cv2.resize(img, (16,16), interpolation=cv2.INTER_AREA)
-        dog = dog_filter(img)
-
-        concat = np.hstack((img, dog))
-        plt.imshow(concat, cmap='gray')
+    smnist = StructuredMNIST((0,1,2,3,4,5,6,7,8,9))
+    train, label = smnist.all()
+    i=0
+    for t in train:
+        # t = dog_filter(t)
+        t[t<0.9] = 0.0
+        # t =cv2.resize(t, (16,16), interpolation=cv2.INTER_AREA)
+        plt.imshow(t, cmap='gray')
         plt.show()
-    exit()
+        i+=1
+        if i==20:
+            exit()

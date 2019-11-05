@@ -1,6 +1,6 @@
 import numpy as np
 from timekeeper import TimeKeeperIterator
-from parameters import AdExParams, LIFParams, ExLIFParams, FTLIFParams, IFParams, HSLIFParams
+from parameters import AdExParams, LIFParams, ExLIFParams, FTLIFParams, IFParams, HSLIFParams, FTMLIFParams
 from units import *
 import random
 import tensorflow as tf
@@ -262,7 +262,7 @@ class ExLIFNeuralGroup(LIFNeuralGroup):
     """
     This class defines a group of Leaky Integrate and Fire Neurons
     """
-    def __init__(self, n_type: int, num: int, name: str, viz_layer: int, tki: TimeKeeperIterator, params: ExLIFParams, field_shape=None):
+    def __init__(self, n_type: int, num: int, name: str, viz_layer: int, tki: TimeKeeperIterator, params: ExLIFParams, field_shape=None, viz_layer_pos=(0,0)):
         super().__init__(n_type, num, name, viz_layer, tki, params=params, field_shape=field_shape, viz_layer_pos=viz_layer_pos)
 
         # custom parameters
@@ -279,6 +279,54 @@ class ExLIFNeuralGroup(LIFNeuralGroup):
 
         # find indices of neurons that have fired
         self.spiked = np.where(self.v_m >= self.v_thr)
+
+
+class FTMLIFNeuralGroup(LIFNeuralGroup):
+    def __init__(self, n_type: int, num: int, name: str, viz_layer: int, tki: TimeKeeperIterator, params: FTMLIFParams, field_shape=None, viz_layer_pos=(0,0)):
+        super().__init__(n_type, num, name, viz_layer, tki, params=params, field_shape=field_shape, viz_layer_pos=viz_layer_pos)
+
+        # custom parameters
+        self.dftm = params.dftm           # percent by which firing threshold changes
+        self.tao_ftm = params.tao_ftm     # decay constant
+        self.mar = params.min_above_rest  # lowest percent above rest to allow neurons to get to
+        self.ftm = np.zeros(self.shape, dtype=np.float)  # floating threshold
+    
+    def update(self, i_syn):
+        # mask of neurons not in refractory period
+        refrac = self.not_in_refractory()
+
+        # calculate change in membrane potential for neurons not in refractory period
+        self.v_m += self.tki.dt() * (-1*(self.v_m - self.v_r) / self.tao_m + i_syn / self.c_m) * refrac
+
+        # calculate change in floating threshold
+        self.ftm += -self.tki.dt() * self.ftm / self.tao_ftm
+
+        # find indices of neurons that have fired
+        self.spiked = np.where(self.v_m >= (self.v_thr + self.ftm))
+    
+    def ftm_mod(self, label, decision, supervised=False):
+        # print(label)
+        # print(decision)
+        # print(self.ftm)
+        correct = label==decision
+        if not supervised:
+            sign = np.full(self.shape, 1.0 if correct else -1.0)
+            sign[label] = -1.0 if correct else 1.0
+        else:
+            sign = np.full(self.shape, 1.0)
+            sign[label] = -1.0
+        
+        # print(sign)
+        self.ftm -= self.dftm * sign * self.v_thr
+        self.ftm[self.ftm > (self.v_thr - self.v_r)] = (1.0-self.mar) * (self.params.v_thr-self.params.v_r)
+        # print(self.ftm)
+        # print(self.v_thr + self.ftm)
+        
+        # l = np.where(self.v_thr - self.v_r >= 0)
+        # self.v_thr[l] = self.v_r[l] + self.mar * self.v_r[l]
+    
+    def reset_ftm(self):
+        self.ftm.fill(0.0)
 
 
 class FTLIFNeuralGroup(LIFNeuralGroup):
