@@ -1,5 +1,5 @@
 import sys
-sys.path.append("../vectorized")
+sys.path.append("../base")
 
 from timekeeper import TimeKeeperIterator
 from NeuralGroup import LIFNeuralGroup, SensoryNeuralGroup, HSLIFNeuralGroup
@@ -16,7 +16,7 @@ import cv2
 
 
 """
-This is a work in progress
+This is a work in progress!!!!!!!!
 """
 
 class GridWorld:

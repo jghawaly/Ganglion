@@ -1,5 +1,5 @@
 import sys
-sys.path.append("../vectorized")
+sys.path.append("../base")
 
 from timekeeper import TimeKeeperIterator
 from NeuralGroup import FTLIFNeuralGroup, SensoryNeuralGroup, LIFNeuralGroup, AdExNeuralGroup

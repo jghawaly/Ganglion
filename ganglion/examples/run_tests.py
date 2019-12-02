@@ -1,5 +1,5 @@
 import sys
-sys.path.append("../vectorized")
+sys.path.append("../base")
 
 from NeuralGroup import LIFNeuralGroup, SensoryNeuralGroup
 from NeuralNetwork import NeuralNetwork
@@ -8,7 +8,6 @@ from parameters import LIFParams
 from units import *
 import time
 import numpy as np
-
 
 print()
 print("Running Test :: Static Network...")
