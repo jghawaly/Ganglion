@@ -10,6 +10,7 @@
 /ganglion/datasets/mnist/*.gz
 /ganglion/datasets/n-mnist
 /ganglion/datasets/poop
+/ganglion/datasets/natural
 /ganglion/datasets/__pycache__
 /ganglion/extra/__pycache__
 /ganglion/extra/*.prof
