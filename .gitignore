@@ -7,7 +7,7 @@
 /ganglion/examples/*.npy
 /ganglion/examples/__pycache__
 /ganglion/examples/*.prof
-/ganglion/datasets/mnist/*.gz
+/ganglion/datasets/mnist/*
 /ganglion/datasets/n-mnist
 /ganglion/datasets/poop
 /ganglion/datasets/natural
