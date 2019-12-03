@@ -3,11 +3,10 @@
 /ganglion/*.prof
 /ganglion/base/__pycache__
 /ganglion/base/*.prof
-/ganglion/examples/MNIST_data
 /ganglion/examples/*.npy
 /ganglion/examples/__pycache__
 /ganglion/examples/*.prof
-/ganglion/datasets/mnist/*
+/ganglion/datasets/mnist/*.npy
 /ganglion/datasets/n-mnist
 /ganglion/datasets/poop
 /ganglion/datasets/natural
@@ -17,3 +16,4 @@
 /ganglion/.vscode
 /ganglion/.VSCodeCounter
 /ganglion/datasets/all
+/ganglion/datasets/saved_weights/*
