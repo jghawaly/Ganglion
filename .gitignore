@@ -13,7 +13,7 @@
 /ganglion/datasets/__pycache__
 /ganglion/extra/__pycache__
 /ganglion/extra/*.prof
-/ganglion/.vscode
-/ganglion/.VSCodeCounter
+.vscode
+.VSCodeCounter
 /ganglion/datasets/all
 /ganglion/datasets/saved_weights/*
