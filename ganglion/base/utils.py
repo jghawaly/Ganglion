@@ -142,12 +142,21 @@ def save_img(path, image, normalize=False):
 @jit(nopython=True, parallel=True, nogil=True)
 def log(x, y, sigma):
     # calculates the value of a LOG filter at the given indices (x,y) and sigma
-    return 1/(np.pi*np.power(sigma, 4.0)) * (1-(x**2+y**2)/(2* sigma**2))*np.exp(-(x**2+y**2)/(2* sigma**2))
+    return -1/(np.pi*np.power(sigma, 4.0)) * (1-(x**2+y**2)/(2* sigma**2))*np.exp(-(x**2+y**2)/(2* sigma**2))
 
 
 @jit(nopython=True, parallel=True, nogil=True)
 def unit_normalize(img):
+    if img.max() <= 0:
+        return img
     return img / img.sum()
+
+
+@jit(nopython=True, parallel=True, nogil=True)
+def max_normalize(img):
+    if img.max() <= 0:
+        return img
+    return img / img.max()
 
 
 def log_filter(sigma, size=7):
@@ -162,8 +171,8 @@ def log_filter(sigma, size=7):
     return k
 
 def apply_log_filter(img, f):
-    newimg = convolve(img, f, mode='full')
-    return newimg / newimg.max()
+    newimg = convolve(img, f, mode='same', boundary='fill')
+    return newimg
 
 def add_noise(img, p=0.1):
     # adds Poisson noise to the given image with the given probability
@@ -192,6 +201,7 @@ if __name__ == '__main__':
 
     smnist = StructuredMNIST((0,1,2,3,4,5,6,7,8,9))
     train, label = smnist.all()
+
     i=0
     for t in train:
         # t = dog_filter(t)
