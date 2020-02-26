@@ -420,6 +420,42 @@ class HSLIFNeuralGroup(LIFNeuralGroup):
         self.v_thr[where_low] = 0.99 * self.v_r[where_low]
 
 
+# class ALIFNeuralGroup(LIFNeuralGroup):
+#     """
+#     This class defines a group of Leaky Integrate and Fire Neurons with Homeostasis that acts to regulate the firing threshold of the neuron in order to maintain 
+#     the average firing rate within a user-defined window.
+#     """
+#     def __init__(self, n_type: int, num: int, name: str, viz_layer: int, tki: TimeKeeperIterator, params: ALIFParams, field_shape=None, viz_layer_pos=(0,0)):
+#         super().__init__(n_type, num, name, viz_layer, tki, params=params, field_shape=field_shape, viz_layer_pos=viz_layer_pos)
+
+#         # custom parameters
+#         self.nip = params.nip
+#         self.phi = np.full(self.shape, params.phi)
+    
+#     def update(self, i_syn):
+#         # mask of neurons not in refractory period
+#         refrac = self.not_in_refractory()
+
+#         # calculate change in membrane potential for neurons not in refractory period
+#         dvm = self.tki.dt() * (-1*(self.v_m - self.v_r) / self.tao_m + i_syn / self.c_m) * refrac
+#         # print(dvm)
+#         self.v_m += dvm
+
+#         # find indices of neurons that have fired
+#         self.spiked = np.where(self.v_m >= self.v_thr)
+
+#         # generate spike mask: Non-standard LIF code starts here -------------------------------------
+#         s = np.zeros_like(self.spike_count)
+#         s[self.spiked] = 1.0
+
+#         # adjust threshold voltage
+#         self.v_thr = self.v_thr + self.nip * (s - self.phi)
+
+#         # make sure threshold does not drop below resting potential
+#         where_low = np.where(self.v_thr <= self.v_r)
+#         self.v_thr[where_low] = 0.99 * self.v_r[where_low]
+
+
 class AdExNeuralGroup(ExLIFNeuralGroup):
     """
     This class defines a group of Adaptive Exponential Integrate and Fire Neurons, as described by Brette and Gerstner (2005). 

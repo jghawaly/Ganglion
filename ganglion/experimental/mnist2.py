@@ -154,7 +154,7 @@ if __name__ == "__main__":
     g7 = model(1, fs[0]*fs[1], "g7", 2, tki, hidden_params, field_shape=fs, viz_layer_pos=(0,5))
     g8 = model(1, fs[0]*fs[1], "g8", 2, tki, hidden_params, field_shape=fs, viz_layer_pos=(0,6))
     g9 = model(1, fs[0]*fs[1], "g9", 2, tki, hidden_params, field_shape=fs, viz_layer_pos=(0,7))
-    g10 = model(1, fs[0]*fs[1], "g10", 2, tki, hidden_params, field_shape=fs, viz_layer_pos=(1,8))
+    g10 = model(1, fs[0]*fs[1], "g10", 2, tki, hidden_params, field_shape=fs, viz_layer_pos=(0,8))
     g11 = model(1, fs[0]*fs[1], "g11", 2, tki, hidden_params, field_shape=fs, viz_layer_pos=(1,0))
     g12 = model(1, fs[0]*fs[1], "g12", 2, tki, hidden_params, field_shape=fs, viz_layer_pos=(1,1))
     g13 = model(1, fs[0]*fs[1], "g13", 2, tki, hidden_params, field_shape=fs, viz_layer_pos=(1,2))

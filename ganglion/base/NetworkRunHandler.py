@@ -10,7 +10,8 @@ import numpy as np
 class NetworkRunHandler:
     # output encoding mechanisms
     FIRST_OUTPUT_ENC = 0
-    CONTINUOUS_OUTPUT_ENC = 1
+    MULTI_FIRST_OUTPUT_ENC = 1
+    STEADY_STATE_OUTPUT_ENC = 2
     
     def __init__(self, nn: NeuralNetwork, 
                        training_data,
@@ -46,8 +47,8 @@ class NetworkRunHandler:
         self.dt = self.tki.dt()
         self.network_labels = network_labels
         self.output_encoding = output_encoding
-        self.exposure_hits = exposure_hits  # only used in continuous output encoding mode
-        self.hit_count = 0  # only used if continuous output encoding mode
+        self.exposure_hits = exposure_hits  # only used in MULTI_FIRST_OUTPUT_ENC encoding mode
+        self.hit_count = 0  # only used in MULTI_FIRST_OUTPUT_ENC encoding mode
 
         # Network Properties When Output is FTM
         self.output_is_ftm = output_is_ftm
@@ -250,7 +251,7 @@ class NetworkRunHandler:
                 if self.enable_additive_frequency:
                     self.on_additive_frequency()
         
-        if self.output_encoding == self.__class__.CONTINUOUS_OUTPUT_ENC:
+        if self.output_encoding == self.__class__.MULTI_FIRST_OUTPUT_ENC:
             if self.cummulative_spikes.sum() > 0:
                 c = np.count_nonzero(self.cummulative_spikes == self.cummulative_spikes.max())
                 if c == 1:
@@ -303,7 +304,8 @@ class NetworkRunHandler:
                     # reset saturation
                     self.output_oversaturated = False
 
-
+        if self.output_encoding == self.__class__.STEADY_STATE_OUTPUT_ENC:
+            pass
         # inject spikes into sensory layer
         self.nn.neural_groups[0].run(poisson_train(self.current_input, self.dt, self.base_input_frequency + self.ft_add))
 
