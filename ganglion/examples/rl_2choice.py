@@ -15,10 +15,11 @@ import matplotlib.pyplot as plt
 
 
 """
-This is a work in progress
+DEPRECATED
 """
 
 if __name__ == "__main__":
+    print("THIS SCRIPT IS DEPRECATED, PLEASE DO NOT USE")
     exposure = 200.0
     input_rate = 360.
     num_episodes = 1000

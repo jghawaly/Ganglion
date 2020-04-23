@@ -12,6 +12,8 @@ class NetworkRunHandler:
     FIRST_OUTPUT_ENC = 0
     MULTI_FIRST_OUTPUT_ENC = 1
     STEADY_STATE_OUTPUT_ENC = 2
+    TIMED_ENC = 3
+    COUNT_ENC = 4
     
     def __init__(self, nn: NeuralNetwork, 
                        training_data,
@@ -39,7 +41,16 @@ class NetworkRunHandler:
                        exposure_hits=10,
                        output_is_ftm=False,
                        ftm_supervised=False,
-                       allow_multi_wrong=False):
+                       allow_multi_wrong=False, 
+                       encoding_time=50 * msec,
+                       decision_encoding_time=10 * msec,
+                       encoding_count=20,
+                       no_label=False,
+                       move_on_time=300*msec, 
+                       verbose=False,
+                       decay_weights=False,
+                       store_predictions=False,
+                       ros=False):
         # Network Properties
         self.nn = nn
         self.run_order = run_order
@@ -49,10 +60,22 @@ class NetworkRunHandler:
         self.output_encoding = output_encoding
         self.exposure_hits = exposure_hits  # only used in MULTI_FIRST_OUTPUT_ENC encoding mode
         self.hit_count = 0  # only used in MULTI_FIRST_OUTPUT_ENC encoding mode
+        self.no_label=no_label
+        self.decay_weights = decay_weights
 
         # Network Properties When Output is FTM
         self.output_is_ftm = output_is_ftm
         self.ftm_supervised = ftm_supervised
+
+        # For TIMED_ENC only
+        self.initial_encoding_time = encoding_time  # amount of time to integrate spikes for the stabilization stage
+        self.tsi = 0.0  # amount of time that we have been integrating output spikes for in the stabilization stage
+        self.decision_encoding_time = decision_encoding_time  # amount of time to integrate spikes for the decision phase
+
+        # For COUNT_ENC only
+        self.encoding_count = encoding_count  # number of output spikes per input
+        self.time_in_ep = 0
+        self.move_on_time = move_on_time  # if the requested number of spikes is not registered in this amount of time, move on to the next example
 
         # Data pre-processors
         self.data_pre_processor = data_pre_processor
@@ -69,6 +92,7 @@ class NetworkRunHandler:
         self.reset_on_process = reset_on_process
         self.rewards = rewards
         self.cummulative_spikes = np.zeros(self.nn.neural_groups[-1].shape)
+        self.ros = ros
         if episodes is None:
             self.episodes = training_data.shape[0]
         else:
@@ -77,6 +101,10 @@ class NetworkRunHandler:
         self.time_since_eval = 0
         self.output_oversaturated = False  # sets to True on multiple, simultaneous spike
         self.allow_mw = allow_multi_wrong  # True to allow the network to make multiple wrong decisions at once
+        self.verbose = verbose
+        self.store_predictions = store_predictions
+        self.y_true = []
+        self.y_pred = []
 
         # Additive frequency 
         self.enable_additive_frequency = enable_additive_frequency
@@ -155,6 +183,7 @@ class NetworkRunHandler:
         Called when a new input is to be generated
         """
         self.data_counter += 1
+        self.time_in_ep = 0
 
         # make sure we don't exceed the bounds of the input data array
         if self.data_counter == self.training_data.shape[0]:
@@ -171,36 +200,57 @@ class NetworkRunHandler:
 
         if self.output_is_ftm:
             self.nn.neural_groups[-1].reset_ftm()
+            self.nn.neural_groups[-1].ftm_mod(self.network_labels, self.current_label)
 
     def on_process_output(self):
         """
         Called when we need to process the output of the network
         """
-        action = self.cummulative_spikes.argmax()
+        if not self.no_label:
+            # action = self.cummulative_spikes.argmax()
+            action = self.network_labels[np.argmax([self.cummulative_spikes[self.network_labels==v].sum() for v in np.unique(self.network_labels)])]
 
-        # True for correct prediction, False otherwise
-        correct = self.network_labels[action] == self.current_label
-        
-        # determine reward
-        reward = self.rewards[1] if correct else self.rewards[0]
-        
-        # puff some dopamine into the network
-        if self.training:
-            self.nn.dopamine_puff(reward, actions=action)
-            if self.output_is_ftm:
-                self.nn.neural_groups[-1].ftm_mod(self.current_label, self.network_labels[action], supervised=self.ftm_supervised)
+            # True for correct prediction, False otherwise
+            correct = action == self.current_label
+            
+            # determine reward
+            reward = self.rewards[1] if correct else self.rewards[0]
+            if self.store_predictions:
+                self.y_true.append(self.current_label)
+                self.y_pred.append(action)
 
-        # calculate accuracy
-        acc = 1.0 if correct else 0.0
-        
-        return reward, acc
+            if self.verbose:
+                print("Target: %s" % str(self.current_label))
+                print("Action: %s" % str(action))
+                print("Reward: %s" % str(reward))
+            
+            # puff some dopamine into the network
+            if self.training:
+                self.nn.dopamine_puff(reward, actions=action)
+
+            # calculate accuracy
+            acc = 1.0 if correct else 0.0
+            
+            return reward, acc
+        else:
+            return 0.0, 0.0
     
     def on_post_process(self):
+        # if requested, perform weight decay
+        if self.decay_weights:
+            self.nn.decay_weights()
+
+        # if requested, normalize the weights
+        if self.normalize_on_weight_change and self.training:
+            self.nn.normalize_weights()
+
         # get our next input
         self.on_next_input()
         
         # iterate episode
         self.current_episode += 1
+        if self.verbose:    
+            print("Curret Episode: %s" % str(self.current_episode))
 
         # rest cummulative spikes of output
         self.cummulative_spikes.fill(0)
@@ -229,10 +279,6 @@ class NetworkRunHandler:
                     if self.reset_on_process:
                         self.nn.reset()
 
-                    # if requested, normalize the weights
-                    if self.normalize_on_weight_change and self.training:
-                        self.nn.normalize_weights()
-
                     # if requested, zero out the additive frequency since we got spikes
                     if self.enable_additive_frequency:
                         self.ft_add = 0
@@ -260,10 +306,6 @@ class NetworkRunHandler:
 
                     # process our output spikes
                     r, a = self.on_process_output()
-
-                    # if requested, normalize the weights
-                    if self.normalize_on_weight_change and self.training:
-                        self.nn.normalize_weights()
                     
                     # if requested, zero out the additive frequency since we got spikes
                     if self.enable_additive_frequency:
@@ -284,13 +326,8 @@ class NetworkRunHandler:
                     # output not saturated
                     self.output_oversaturated = False
                 elif c > 1:
-                    print("OH Poop")
                     # forget everything that just happened
                     self.nn.reset()
-                    if self.output_is_ftm and self.training:
-                        self.nn.neural_groups[-1].ftm_mod(self.current_label, None, supervised=self.ftm_supervised)
-                    # # forget everything that just happened
-                    # self.nn.reset()
                     # clear out cummulative spike array
                     self.cummulative_spikes.fill(0)
                     # set saturation flag to True
@@ -304,10 +341,62 @@ class NetworkRunHandler:
                     # reset saturation
                     self.output_oversaturated = False
 
-        if self.output_encoding == self.__class__.STEADY_STATE_OUTPUT_ENC:
-            pass
+        if self.output_encoding == self.__class__.TIMED_ENC:
+            # increase integration time
+            self.tsi += self.tki.dt()
+
+            # if we have been integrating long enough
+            if self.tsi >= self.initial_encoding_time:
+                if self.tsi >= self.initial_encoding_time + self.decision_encoding_time:
+                    r, a = self.on_process_output()
+                    # set metrics
+                    self.metrics = (r, a, self.cummulative_spikes.sum())
+                    if self.reset_on_process:
+                        self.nn.reset()
+                    self.on_post_process()
+                    self.tsi = 0.0
+                    return False
+                else:
+                    self.cummulative_spikes.fill(0)
+        
+        if self.output_encoding == self.__class__.COUNT_ENC:
+            self.time_in_ep += self.tki.dt() 
+            if self.time_in_ep > self.move_on_time:
+                self.nn.reset()
+                self.on_post_process()
+                self.tsi = 0
+                if self.enable_additive_frequency:
+                    self.ft_add = 0
+                if self.verbose:
+                    print("...Max time per episode exceeded, moving on to next input...")
+                return False
+            spike_sum = self.cummulative_spikes.sum()
+            if spike_sum > 0:
+                
+                # if we have been integrating long enough
+                if spike_sum >= self.encoding_count:
+                    r, a = self.on_process_output()
+                    # set metrics
+                    self.metrics = (r, a, self.cummulative_spikes.sum())
+                    if self.reset_on_process:
+                        self.nn.reset()
+                    self.on_post_process()
+                    self.tsi = 0.0
+
+                    # if requested, zero out the additive frequency since we got spikes
+                    if self.enable_additive_frequency:
+                        self.ft_add = 0
+                    return False
+                else:
+                    if self.ros and (self.nn.neural_groups[-1].spike_count.sum() > 0):
+                        self.nn.reset()
+            else:
+                # if requested, perform additive frequency
+                if self.enable_additive_frequency:
+                    self.on_additive_frequency()
+
         # inject spikes into sensory layer
-        self.nn.neural_groups[0].run(poisson_train(self.current_input, self.dt, self.base_input_frequency + self.ft_add))
+        self.nn.neural_groups[0].run(poisson_train(self.current_input, self.dt, (self.base_input_frequency + self.ft_add) / self.current_input.max()))
 
         # run all layers
         self.nn.run_order(self.run_order)
@@ -334,3 +423,6 @@ class NetworkRunHandler:
         
         # when the episode is done, return the results
         return True, self.metrics
+    
+    def get_predictions(self):
+        return self.y_true, self.y_pred

@@ -112,7 +112,7 @@ class Viz:
                                     
                                     ft = g.v_thr.reshape(g.field_shape)[r, c]
                                     rest = g.v_r.reshape(g.field_shape)[r, c]
-                                    dec = np.abs(vm / (ft-rest))
+                                    dec = np.abs((vm-rest) / (ft-rest))
                                     
                                     self.cube(origin, batch, ('v_m', dec, True if spikes[r, c] > 0 else False))
                                 else:
@@ -145,16 +145,16 @@ class VizWindow(pyglet.window.Window):
     def on_draw(self):
         if self.key_down['left']:
             # rotate camera left
-            self.r[1] += 1
+            self.r[1] += 10
         elif self.key_down['right']:
             # rotate camera right
-            self.r[1] -= 1
+            self.r[1] -= 10
         elif self.key_down['up']:
             # rotate camera up
-            self.r[0] -= 1
+            self.r[0] -= 10
         elif self.key_down['down']:
             # rotate camera down
-            self.r[0] += 1
+            self.r[0] += 10
         elif self.key_down['A']:
             # move camera right
             self.p[0] -= 80
@@ -172,7 +172,7 @@ class VizWindow(pyglet.window.Window):
         
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
-        gluPerspective(60.0, 1, 0.1, 10000)
+        gluPerspective(60.0, 1, 0.1, 50000)
 
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
@@ -238,6 +238,7 @@ class VizWindow(pyglet.window.Window):
         episodes are over, it returns False, metrics
         """
         running = self.nth.step()
+        # running, _ = self.nth.run_episode()
         
 
 

@@ -33,3 +33,8 @@ ucoul = 1e-6  # micro coulomb
 ncoul = 1e-9  # nano coulomb
 pcoul = 1e-12  # pico coulomb
 
+# frequency
+hz = 1.0  # Hertz
+mhz = 1e-3  # millihertz
+khz = 1.0e3  # kilohertz
+

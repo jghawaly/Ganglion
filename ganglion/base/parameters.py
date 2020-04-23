@@ -3,16 +3,13 @@ from units import *
 
 class IFParams:
     def __init__(self):
-        # self-defined parameters
-        self.refractory_period = 2.0 * msec
-
-        # Parameters from Brette and Gerstner (2005).
-        self.v_r = -70.6 * mvolt
-        self.v_m = -70.6 * mvolt
+        self.refractory_period = 3.0 * msec
+        self.v_r = -70 * mvolt
+        self.v_m = -70 * mvolt
         self.v_spike = 40.0 * mvolt
-        self.v_thr = -50.4 * mvolt
-        self.tao_m = 9.37 * msec
-        self.c_m = 281.0 * pfarad
+        self.v_thr = -50 * mvolt
+        self.tao_m = 10 * msec
+        self.c_m = 1.0 * pfarad
 
         # synaptic current parameters
         self.gbar_e = 100.0 * nsiem
@@ -31,13 +28,6 @@ class LIFParams(IFParams):
         self.tao_m = 9.37 * msec
 
 
-class FTMLIFParams(LIFParams):
-    def __init__(self):
-        super().__init__()
-        self.dftm = 0.1
-        self.tao_ftm = 100.0 * msec
-        self.min_above_rest = 0.01
-
 class FTLIFParams(LIFParams):
     def __init__(self):
         super().__init__()
@@ -50,6 +40,31 @@ class HSLIFParams(LIFParams):
         super().__init__()
         self.nip = 0.001
         self.phi = 1
+
+
+class AMLIFParams(LIFParams):
+    def __init__(self):
+        super().__init__()
+        self.ca_tau = 5 * msec
+        self.k = 1.0  # allows for turning off m current completely
+        self.sa = 1  # amount added to m each time a spike occurs
+
+
+class HSAMLIFParams(LIFParams):
+    def __init__(self):
+        super().__init__()
+        self.ca_tau = 5 * msec
+        self.k = 1.0  # allows for turning off m current completely
+        self.sa = 1  # amount added to m each time a spike occurs
+        self.nip = 0.001
+        self.phi = 1
+
+class STLIFParams(AMLIFParams):
+    def __init__(self):
+        super().__init__()
+        self.dftm = 0.1
+        self.tao_ftm = 100.0 * msec
+        self.min_above_rest = 0.01
 
 
 class ExLIFParams(LIFParams):
@@ -72,8 +87,10 @@ class AdExParams(ExLIFParams):
 
 class SynapseParams:
     def __init__(self):
-        self.tao_syn = 5.0 * msec  # this probably needs to be 10 msec
+        self.tao_syn = 0.3 * msec  #0.3
+        self.tao_syn_i = 1 * msec  # inhibitory tau
         self.spike_window = 20.0 * msec
+        self.lati=False
 
         
 class PairSTDPParams:
@@ -89,7 +106,9 @@ class PairSTDPParams:
 
         # standard settings
         self.lr = 0.05
-        self.stdp_window = 20.0 * msec
+
+        # weight decay EXPERIMENTAL
+        self.wd = 1
 
 class TripletSTDPParams:
     visual_cortex = 0
@@ -121,14 +140,12 @@ class TripletSTDPParams:
         # standard settings
         self.lr = 0.05
         self.stdp_window = 20.0 * msec
+        self.wd = 1
 
 class DASTDPParams():
     def __init__(self):
         # a -----> Pre-spike
         # b -----> Post-spike
-
-        # blah
-        self.motor_excitability = False
 
         # global learning rate
         self.lr = 0.05
@@ -149,13 +166,5 @@ class DASTDPParams():
         self.ab_scale_neg = -1.0
         self.ba_scale_neg = 1.0
 
-        # # scaling factors for positive rewards
-        # self.ab_scale_pos = 1.0
-        # self.ba_scale_pos = 0.0
-
-        # # scaling factors for negative rewards
-        # self.ab_scale_neg = 0.0
-        # self.ba_scale_neg = -1.0
-
         # common settings
-        self.stdp_window = 20.0 * msec
+        self.wd = 1

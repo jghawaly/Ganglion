@@ -1,10 +1,10 @@
 import sys
 sys.path.append("../base")
 
-from NeuralGroup import LIFNeuralGroup, SensoryNeuralGroup
+from NeuralGroup import *
 from NeuralNetwork import NeuralNetwork
 from timekeeper import TimeKeeperIterator
-from parameters import LIFParams
+from parameters import *
 from units import *
 import time
 import numpy as np
@@ -36,11 +36,11 @@ for step in tki:
 end_time = time.time()
 tsc = np.sum(g3.isyn_track)
 
-if 1.4e-6 > tsc > 1.3e-6:
+if 6.65152e-07 > tsc > 6.65150e-07:
     test = "PASSED"
 else:
     test = "FAILED"
-print("Test  ::  %s  ::  Total synaptic current  ::  %g  ::  Expected synaptic current  ::  %s  ::  Execution Time  ::  %g seconds" % (test, np.sum(g3.isyn_track), "1.3632e-06", end_time-start_time))
+print("Test  ::  %s  ::  Total synaptic current  ::  %g  ::  Expected synaptic current  ::  %s  ::  Execution Time  ::  %g seconds" % (test, np.sum(g3.isyn_track), "6.65151e-07", end_time-start_time))
 
 # -------------------------------------------------------------------------------------------------------
 
@@ -71,11 +71,11 @@ for step in tki:
 end_time = time.time()
 tsc = np.sum(g3.isyn_track)
 
-if 0.00077 > tsc > 0.00076:
+if 4.26568e-05 > tsc > 4.26566e-05:
     test = "PASSED"
 else:
     test = "FAILED"
-print("Test  ::  %s  ::  Total synaptic current  ::  %g  ::  Expected synaptic current  ::  %s  ::  Execution Time  ::  %g seconds" % (test, np.sum(g3.isyn_track), "0.000765634", end_time-start_time))
+print("Test  ::  %s  ::  Total synaptic current  ::  %g  ::  Expected synaptic current  ::  %s  ::  Execution Time  ::  %g seconds" % (test, np.sum(g3.isyn_track), "4.26567e-05", end_time-start_time))
 
 # -------------------------------------------------------------------------------------------------------
 
@@ -109,11 +109,11 @@ for step in tki:
 end_time = time.time()
 tsc = np.sum(g3.isyn_track)
 
-if  0.001607 > tsc >  0.0016:
+if  8.53136e-05 > tsc >  8.53134e-05:
     test = "PASSED"
 else:
     test = "FAILED"
-print("Test  ::  %s  ::  Total synaptic current  ::  %g  ::  Expected synaptic current  ::  %s  ::  Execution Time  ::  %g seconds" % (test, np.sum(g3.isyn_track), " 0.00160687", end_time-start_time))
+print("Test  ::  %s  ::  Total synaptic current  ::  %g  ::  Expected synaptic current  ::  %s  ::  Execution Time  ::  %g seconds" % (test, np.sum(g3.isyn_track), "8.53135e-05", end_time-start_time))
 
 # -------------------------------------------------------------------------------------------------------
 
@@ -145,11 +145,11 @@ for step in tki:
 end_time = time.time()
 tsc = np.sum(g3.isyn_track)
 
-if 8.71e-07 > tsc > 8.7e-07:
+if 6.70269e-08 > tsc > 6.70267e-08:
     test = "PASSED"
 else:
     test = "FAILED"
-print("Test  ::  %s  ::  Total synaptic current  ::  %g  ::  Expected synaptic current  ::  %s  ::  Execution Time  ::  %g seconds" % (test, np.sum(g3.isyn_track), "8.70839e-07", end_time-start_time))
+print("Test  ::  %s  ::  Total synaptic current  ::  %g  ::  Expected synaptic current  ::  %s  ::  Execution Time  ::  %g seconds" % (test, np.sum(g3.isyn_track), "6.70268e-08", end_time-start_time))
 
 # -------------------------------------------------------------------------------------------------------
 
@@ -183,10 +183,43 @@ for step in tki:
 end_time = time.time()
 tsc = np.sum(g3.isyn_track)
 
-if 7.72e-07 > tsc > 7.71e-07:
+if 6.22392e-08 > tsc > 6.22390e-08:
     test = "PASSED"
 else:
     test = "FAILED"
-print("Test  ::  %s  ::  Total synaptic current  ::  %g  ::  Expected synaptic current  ::  %s  ::  Execution Time  ::  %g seconds" % (test, np.sum(g3.isyn_track), "7.71805e-07", end_time-start_time))
+print("Test  ::  %s  ::  Total synaptic current  ::  %g  ::  Expected synaptic current  ::  %s  ::  Execution Time  ::  %g seconds" % (test, np.sum(g3.isyn_track), "6.22391e-08", end_time-start_time))
 
 # -------------------------------------------------------------------------------------------------------
+
+print()
+# print("Running Test :: Pair STDP Network...")
+# print()
+# tki = TimeKeeperIterator(timeunit=0.1*msec)
+# duration = 500 * msec
+
+# g1 = SensoryNeuralGroup(1, 4, "input", 1, tki, LIFParams())
+# g2 = HSAMLIFNeuralGroup(1, 4, "hidden", 2, tki, HSAMLIFParams())
+# g3 = HSAMLIFNeuralGroup(1, 4, "output", 3, tki, HSAMLIFParams())
+# g3.tracked_vars = ['i_syn']
+
+# nn = NeuralNetwork([g1, g2, g3], "network", tki)
+
+# nn.fully_connect("input", "hidden", s_type='pair', w_i=0.1)
+# nn.fully_connect("hidden", "output", s_type='pair', w_i=0.1)
+
+# start_time = time.time()
+# for step in tki:
+#     g1.run(np.array([1,0,1,0]).reshape(4, 1))
+
+#     nn.run_order(["input", "hidden", "output"])
+
+#     if step >= duration/tki.dt():
+#         break
+# end_time = time.time()
+# tsc = np.sum(g3.isyn_track)
+
+# if 4.26568e-05 > tsc > 4.26566e-05:
+#     test = "PASSED"
+# else:
+#     test = "FAILED"
+# print("Test  ::  %s  ::  Total synaptic current  ::  %g  ::  Expected synaptic current  ::  %s  ::  Execution Time  ::  %g seconds" % (test, np.sum(g3.isyn_track), "4.26567e-05", end_time-start_time))
