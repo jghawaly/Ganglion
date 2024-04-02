@@ -90,16 +90,16 @@ class SensoryNeuralGroup(NeuralGroup):
         super().__init__(n_type, num, name, viz_layer, tki, field_shape=field_shape, viz_layer_pos=viz_layer_pos)
         self.params = params
 
-        self.spike_count = np.zeros(self.shape, dtype=np.int)  # holds the NUMBER OF spikes that occured in the last evaluated time window
+        self.spike_count = np.zeros(self.shape, dtype=int)  # holds the NUMBER OF spikes that occured in the last evaluated time window
         self.v_spike = np.full(self.shape, params.v_spike)  # spike potential
 
         # construct reversal potential matrix
-        self.v_rev = np.full(self.shape, params.vrev_e if self.n_type == excitatory else params.vrev_i, dtype=np.float)
+        self.v_rev = np.full(self.shape, params.vrev_e if self.n_type == excitatory else params.vrev_i, dtype=float)
         self.vrev_i = np.full(self.shape, params.vrev_i)
         self.vrev_e = np.full(self.shape, params.vrev_e)
 
         # construct gbar matrix
-        self.gbar = np.full(self.shape, params.gbar_e if self.n_type == excitatory else params.gbar_i, dtype=np.float)
+        self.gbar = np.full(self.shape, params.gbar_e if self.n_type == excitatory else params.gbar_i, dtype=float)
 
         # lists that will contain the membrane voltage track
         self.v_m_track = []
@@ -120,7 +120,7 @@ class SensoryNeuralGroup(NeuralGroup):
 
     def post_update(self, spike_count):
         if "v_m" in self.tracked_vars:
-            output = np.zeros(self.shape, dtype=np.float)
+            output = np.zeros(self.shape, dtype=float)
             output[np.where(self.spike_count > 0)] = self.v_spike[np.where(self.spike_count > 0)]  # generate spikes where they are requested
             self.v_m_track.append(output)
         if "spike" in self.tracked_vars:
@@ -145,21 +145,21 @@ class IFNeuralGroup(NeuralGroup):
         # refractory period for these neurons
         self.refractory_period = np.full(self.shape, params.refractory_period)  
         # holds boolean array of WHETHER OR NOT a spike occured in the last call to run() (Note: NOT THE LAST TIME STEP)
-        self.spiked = np.zeros(self.shape, dtype=np.int)  
+        self.spiked = np.zeros(self.shape, dtype=int)
         # holds the NUMBER OF spikes that occured in the last evaluated time window
-        self.spike_count = np.zeros(self.shape, dtype=np.int) 
+        self.spike_count = np.zeros(self.shape, dtype=int)
         # holds the TIMES OF last spike for each neuron
-        self.last_spike_time = np.zeros(self.shape, dtype=np.float)  
+        self.last_spike_time = np.zeros(self.shape, dtype=float)
         # holds the time at which the spike count array was last updated
         self.last_spike_count_update = 0.0  
 
         # construct reversal potential matrix
-        self.v_rev = np.full(self.shape, params.vrev_e if self.n_type == excitatory else params.vrev_i, dtype=np.float)
+        self.v_rev = np.full(self.shape, params.vrev_e if self.n_type == excitatory else params.vrev_i, dtype=float)
         self.vrev_i = np.full(self.shape, params.vrev_i)
         self.vrev_e = np.full(self.shape, params.vrev_e)
 
         # construct gbar matrix
-        self.gbar = np.full(self.shape, params.gbar_e if self.n_type == excitatory else params.gbar_i, dtype=np.float)
+        self.gbar = np.full(self.shape, params.gbar_e if self.n_type == excitatory else params.gbar_i, dtype=float)
 
         # Parameters from Brette and Gerstner (2005).
         self.v_r = np.full(self.shape, params.v_r)  # rest potential
@@ -185,7 +185,7 @@ class IFNeuralGroup(NeuralGroup):
         """
         return mask of neurons that ARE NOT in refractory period
         """
-        ir = np.ones(self.shape, dtype=np.int)
+        ir = np.ones(self.shape, dtype=int)
         # set zeros for neurons in the refractory period
         ir[np.where((self.tki.tick_time() - self.last_spike_time) < self.refractory_period)] = 0
         # if last_spike_time is 0.0, then the neuron has never fired yet, so we want to exclude this
@@ -196,10 +196,10 @@ class IFNeuralGroup(NeuralGroup):
     def pre_update(self, i_syn):
         # if we are at a new time step since evaluating the neurons, then clear the spike count matrices
         if self.last_spike_count_update != self.tki.tick_time():
-            # self.spike_count = np.zeros(self.shape, dtype=np.int)
+            # self.spike_count = np.zeros(self.shape, dtype=int)
             self.spike_count.fill(0)
         
-        self.spiked = np.zeros(self.shape, dtype=np.int)
+        self.spiked = np.zeros(self.shape, dtype=int)
     
     def update(self, i_syn):
         # mask of neurons not in refractory period
@@ -321,7 +321,7 @@ class FTLIFNeuralGroup(LIFNeuralGroup):
         # custom parameters
         self.tao_ft = params.tao_ft  # time constant of floating threshold decay
         self.ft_add = params.ft_add  # amount that the floating threshold increases by at each firing
-        self.ft = np.zeros(self.shape, dtype=np.float)  # floating threshold
+        self.ft = np.zeros(self.shape, dtype=float)  # floating threshold
         self.forced_wta = forced_wta  # True to enable forced winner-take-all dynamic
 
         # custom tracking parameters
@@ -458,7 +458,7 @@ class STLIFNeuralGroup(AMLIFNeuralGroup):
         self.dftm = params.dftm           # percent by which firing threshold changes
         self.tao_ftm = params.tao_ftm     # decay constant
         self.mar = params.min_above_rest  # lowest percent above rest to allow neurons to get to
-        self.ftm = np.zeros(self.shape, dtype=np.float)  # floating threshold
+        self.ftm = np.zeros(self.shape, dtype=float)  # floating threshold
     
     def update(self, i_syn):
         self.update_vm(i_syn)

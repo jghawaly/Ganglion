@@ -65,8 +65,8 @@ class StructuredMNIST:
             label.append(l)
             count += 1
         
-        data = np.array(data, dtype=np.float)
-        label = np.array(label, dtype=np.int)
+        data = np.array(data, dtype=float)
+        label = np.array(label, dtype=int)
 
         return data, label
 
@@ -116,7 +116,7 @@ def poisson_train(inp: np.ndarray, dt, r):
     # sample random numbers
     s = np.random.random(p.shape)
     # spike output
-    o = np.zeros(inp.shape, dtype=np.float)
+    o = np.zeros(inp.shape, dtype=float)
     # generate spikes
     o[np.where(s <= p)] = 1.0
 

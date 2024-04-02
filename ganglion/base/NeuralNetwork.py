@@ -61,7 +61,7 @@ class NeuralNetwork:
         g1 = self.g(g1_tag)
         g2 = self.g(g2_tag)
 
-        wm = np.ones((g1.shape[0], g2.shape[0]), dtype=np.float)
+        wm = np.ones((g1.shape[0], g2.shape[0]), dtype=float)
         if skip_one_to_one:
             np.fill_diagonal(wm, 0.0)
 
@@ -91,7 +91,7 @@ class NeuralNetwork:
         if g1.shape != g2.shape:
             raise ValueError("The shape of the first neural group must be the same shape of the second neural group but are : %s and %s" % (str(g1.shape), str(g2.shape)))
 
-        wm = np.zeros((g1.shape[0], g2.shape[0]), dtype=np.float)
+        wm = np.zeros((g1.shape[0], g2.shape[0]), dtype=float)
         
         # one-to-one mapping
         np.fill_diagonal(wm, 1.0)
@@ -121,7 +121,7 @@ class NeuralNetwork:
         g1 = self.g(g1_tag)
         g2 = self.g(g2_tag)
 
-        wm = np.zeros((g1.shape[0], g2.shape[0]), dtype=np.float)
+        wm = np.zeros((g1.shape[0], g2.shape[0]), dtype=float)
         # patch mapping
         a_rows = g1.field_shape[0]
         a_cols = g1.field_shape[1]

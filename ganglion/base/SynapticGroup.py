@@ -51,14 +51,14 @@ class BaseSynapticGroup:
         self.enable_wd = enable_wd  # True to enable weight decay
 
         if weight_multiplier is None:
-            self.weight_multiplier = np.ones((self.m, self.n), dtype=np.float)
+            self.weight_multiplier = np.ones((self.m, self.n), dtype=float)
         else:
             self.weight_multiplier = weight_multiplier
         self.w = self.construct_weights(loaded_weights)  # construct weight matrix
 
         self.num_histories = int(self.synp.spike_window / self.tki.dt())  # number of discretized time bins that we will keep track of presynaptic spikes in
         self.hist_range = range(self.num_histories)  # just pre-calculating this range for speed
-        self.history = np.zeros((self.num_histories, self.m), dtype=np.float)  # A num_histories * num_synapses matrix containing spike counts for each synapse, for each time evaluation step
+        self.history = np.zeros((self.num_histories, self.m), dtype=float)  # A num_histories * num_synapses matrix containing spike counts for each synapse, for each time evaluation step
         self.last_history_update_time = -1.0  # this is the time at which the history array was last updated
         self.p_term = self.precalculate_term()  # precalculate part of the synaptic current calculation
         self.localized_normalization = localized_normalization  # If True, whenever normalize_weights is called, only weights that are enabled as modifiable via the weight multiplier will be normalized
@@ -143,7 +143,7 @@ class BaseSynapticGroup:
 
         alpha_time = delta_t / self.synp.tao_syn * np.exp(-1.0 * delta_t / self.synp.tao_syn)
 
-        gbar_pre = np.zeros(self.m, dtype=np.float).transpose()
+        gbar_pre = np.zeros(self.m, dtype=float).transpose()
         gbar_pre[:] = self.pre_n.gbar
 
         return np.outer(gbar_pre.transpose(), alpha_time)
@@ -164,14 +164,14 @@ class BaseSynapticGroup:
         """
         Calculate the current flowing across this synaptic group, as a function of the spike history
         """
-        v_m_post = np.zeros((self.m, self.n), dtype=np.float)
-        v_rev_pre = np.zeros((self.m, self.n), dtype=np.float)
+        v_m_post = np.zeros((self.m, self.n), dtype=float)
+        v_rev_pre = np.zeros((self.m, self.n), dtype=float)
 
         v_m_post[:] = self.post_n.v_m
         v_rev_pre.T[:] = self.pre_n.v_rev
         v_term = v_rev_pre-v_m_post
 
-        i_syn = np.zeros(self.n, dtype=np.float)
+        i_syn = np.zeros(self.n, dtype=float)
         for k in self.hist_range:
             if any_nonzero(self.history[k]):
                 p_term_k = self.p_term[:, k][np.newaxis].transpose()
@@ -225,8 +225,8 @@ class PairSTDPSynapticGroup(BaseSynapticGroup):
         self.stdpp = PairSTDPParams() if stdp_params is None else stdp_params
 
         # pair STDP parameters
-        self.a_trace = np.zeros(self.w.shape, dtype=np.float)
-        self.b_trace = np.zeros(self.w.shape, dtype=np.float)
+        self.a_trace = np.zeros(self.w.shape, dtype=float)
+        self.b_trace = np.zeros(self.w.shape, dtype=float)
     
     def reset(self):
         """
@@ -306,10 +306,10 @@ class TripletSTDPSynapticGroup(BaseSynapticGroup):
         self.stdpp = TripletSTDPParams() if stdp_params is None else stdp_params 
 
         # triplet STDP parameters 
-        self.stdp_r1 = np.zeros(self.w.shape, dtype=np.float)
-        self.stdp_r2 = np.zeros(self.w.shape, dtype=np.float)
-        self.stdp_o1 = np.zeros(self.w.shape, dtype=np.float)
-        self.stdp_o2 = np.zeros(self.w.shape, dtype=np.float)
+        self.stdp_r1 = np.zeros(self.w.shape, dtype=float)
+        self.stdp_r2 = np.zeros(self.w.shape, dtype=float)
+        self.stdp_o1 = np.zeros(self.w.shape, dtype=float)
+        self.stdp_o2 = np.zeros(self.w.shape, dtype=float)
     
     def reset(self):
         """
@@ -386,12 +386,12 @@ class DASTDPSynapticGroup(BaseSynapticGroup):
         self.stdpp = DASTDPParams() if stdp_params is None else stdp_params 
 
         # eligibility traces for pre-post and post-pre spike pairs
-        self.ab_et = np.zeros(self.w.shape, dtype=np.float)
-        self.ba_et = np.zeros(self.w.shape, dtype=np.float)
+        self.ab_et = np.zeros(self.w.shape, dtype=float)
+        self.ba_et = np.zeros(self.w.shape, dtype=float)
 
         # spike traces for pre and post spikes
-        self.a_trace = np.zeros(self.w.shape, dtype=np.float)
-        self.b_trace = np.zeros(self.w.shape, dtype=np.float)
+        self.a_trace = np.zeros(self.w.shape, dtype=float)
+        self.b_trace = np.zeros(self.w.shape, dtype=float)
     
     def reset(self):
         """
@@ -495,14 +495,14 @@ class InhibitorySynapticGroup(BaseSynapticGroup):
         The only difference between this one and the BaseSynapticGroup is that in this implementation, the presynaptic reversal potential is ALWAYS the inhibitory reversal potential. This allows us to bypass the need for an extra neuralgroup
         for self-inhibition
         """
-        v_m_post = np.zeros((self.m, self.n), dtype=np.float)
-        v_rev_pre = np.zeros((self.m, self.n), dtype=np.float)
+        v_m_post = np.zeros((self.m, self.n), dtype=float)
+        v_rev_pre = np.zeros((self.m, self.n), dtype=float)
 
         v_m_post[:] = self.post_n.v_m
         v_rev_pre.T[:] = self.pre_n.vrev_i
         v_term = v_rev_pre-v_m_post
 
-        i_syn = np.zeros(self.n, dtype=np.float)
+        i_syn = np.zeros(self.n, dtype=float)
         for k in range(self.num_histories):
             hist_k = self.history[k]
             p_term_k = self.p_term[:, k][np.newaxis].transpose()
@@ -519,7 +519,7 @@ class InhibitorySynapticGroup(BaseSynapticGroup):
 
         alpha_time = delta_t / self.synp.tao_syn_i * np.exp(-1.0 * delta_t / self.synp.tao_syn_i)
 
-        gbar_pre = np.zeros(self.m, dtype=np.float).transpose()
+        gbar_pre = np.zeros(self.m, dtype=float).transpose()
         gbar_pre[:] = self.pre_n.params.gbar_i
 
         return np.outer(gbar_pre.transpose(), alpha_time)
@@ -538,7 +538,7 @@ class LatiSynapticGroup:
         self.m = pre_n.shape[0]  # number of neurons in presynaptic group
         self.n = post_n.shape[0]  # number of neuronsin postsynaptic group
 
-        self.isyn = np.zeros(self.n, dtype=np.float)
+        self.isyn = np.zeros(self.n, dtype=float)
 
     def calc_isyn(self):
         """
